@@ -312,31 +312,43 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
   };
 
   return (
-    <div className="safe-modal-overlay fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center overflow-hidden">
-      <div className="relative w-full max-w-2xl max-h-full overflow-y-auto rounded-3xl bg-slate-900 border border-white/15 p-5 sm:p-7 shadow-2xl">
-        <button
-          onClick={() => {
-            abortControllerRef.current?.abort();
-            onClose();
-          }}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div
+      onClick={() => {
+        abortControllerRef.current?.abort();
+        onClose();
+      }}
+      className="safe-modal-overlay fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center overflow-hidden"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl max-h-full overflow-y-auto rounded-3xl bg-slate-900 border border-white/15 p-4 sm:p-7 shadow-2xl"
+      >
+        {/* Modal Header with prominent Close button */}
+        <div className="flex items-center justify-between gap-2 mb-5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-pink-500 text-slate-950 flex items-center justify-center shadow-lg">
+              <Images className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-display font-black text-base sm:text-2xl text-white truncate">
+                Studio Photos & Pack
+              </h2>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">
+                Importez vos photos ou partagez votre pack famille
+              </p>
+            </div>
+          </div>
 
-        {/* Modal Header */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-pink-500 text-slate-950 flex items-center justify-center shadow-lg">
-            <Images className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="font-display font-black text-xl sm:text-2xl text-white">
-              Studio Photos & Tirage au Hasard
-            </h2>
-            <p className="text-xs text-slate-400">
-              Sélectionnez un grand bloc de photos et laissez le jeu tirer vos cartes au hasard !
-            </p>
-          </div>
+          <button
+            onClick={() => {
+              abortControllerRef.current?.abort();
+              onClose();
+            }}
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-black text-xs flex items-center gap-1 shadow-md transition"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span>Fermer</span>
+          </button>
         </div>
 
         {/* Child First Name & Random Sample Count */}

@@ -255,55 +255,108 @@ export const App: React.FC = () => {
         onChange={(e) => handleDirectPackFileSelected(e.target.files)}
       />
 
-      {/* ==================== TOP NAVIGATION HEADER (Single compact row + Dynamic Island safe area) ==================== */}
-      <header className="safe-top-header shrink-0 z-40 backdrop-blur-xl bg-slate-950/90 border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3">
-          {/* Brand Logo */}
-          <div
-            onClick={() => setActiveTab('booster')}
-            className="flex items-center gap-2 cursor-pointer group shrink-0"
-          >
-            <img
-              src="./icon-192.png"
-              alt="milTCG"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-[0_0_16px_rgba(251,191,36,0.4)] group-hover:scale-105 transition object-cover"
-            />
-            <div>
-              <h1 className="font-display font-black text-base sm:text-xl tracking-tight text-white leading-none">
-                mil<span className="text-amber-400">TCG</span>
-              </h1>
-              <p className="text-[10px] text-slate-400 font-medium hidden md:block mt-0.5">
-                {settings.totalPacksOpened} booster(s) • {ownedUniqueCount}/{allCards.length} cartes
-              </p>
+      {/* ==================== TOP NAVIGATION HEADER (2-row mobile layout 100% clear of Dynamic Island & horizontal clipping) ==================== */}
+      <header className="safe-top-header shrink-0 z-40 backdrop-blur-xl bg-slate-950/95 border-b border-white/10 w-full">
+        <div className="max-w-6xl mx-auto px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          {/* Top Row on Mobile: Brand Logo (Left) + All Action Buttons (Right) */}
+          <div className="w-full sm:w-auto flex items-center justify-between gap-2">
+            {/* Brand Logo */}
+            <div
+              onClick={() => setActiveTab('booster')}
+              className="flex items-center gap-2 cursor-pointer group shrink-0"
+            >
+              <img
+                src="./icon-192.png"
+                alt="milTCG"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl shadow-[0_0_16px_rgba(251,191,36,0.4)] group-hover:scale-105 transition object-cover"
+              />
+              <div>
+                <h1 className="font-display font-black text-base sm:text-xl tracking-tight text-white leading-none">
+                  mil<span className="text-amber-400">TCG</span>
+                </h1>
+                <p className="text-[10px] text-slate-400 font-medium hidden md:block mt-0.5">
+                  {settings.totalPacksOpened} booster(s) • {ownedUniqueCount}/{allCards.length} cartes
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons on Mobile (Right side of Row 1) */}
+            <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => directPackInputRef.current?.click()}
+                disabled={isImportingPack}
+                title="Importer un Pack (.json)"
+                className="px-2.5 py-1.5 rounded-xl bg-pink-500/25 active:bg-pink-500/40 border border-pink-400/60 text-[11px] font-extrabold text-pink-100 flex items-center gap-1 shadow-sm disabled:opacity-50"
+              >
+                {isImportingPack ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-pink-300" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-pink-300" />
+                )}
+                <span>Pack</span>
+              </button>
+
+              <button
+                onClick={() => setIsPhotoManagerOpen(true)}
+                title="Google Photos & Gestion du Pack"
+                className="px-2.5 py-1.5 rounded-xl bg-indigo-600/35 active:bg-indigo-600/55 border border-indigo-400/60 text-[11px] font-bold text-indigo-100 flex items-center gap-1 shadow-sm"
+              >
+                <Images className="w-3.5 h-3.5 text-amber-300" />
+                <span>Photos</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-950/90 text-amber-300 text-[10px] font-extrabold border border-indigo-400/30">
+                  {customCards.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setIsInstallModalOpen(true)}
+                title="Installer en mode Application sur le téléphone"
+                className="px-2 py-1.5 rounded-xl bg-amber-400/20 active:bg-amber-400/35 border border-amber-400/60 text-[11px] font-extrabold text-amber-200 flex items-center gap-1 shadow-sm"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+                <span>App</span>
+              </button>
+
+              <button
+                onClick={() => handleUpdateSettings({ soundEnabled: !settings.soundEnabled })}
+                title={settings.soundEnabled ? 'Couper le son' : 'Activer le son'}
+                className="w-8 h-8 rounded-xl bg-slate-900 active:bg-slate-800 border border-white/15 flex items-center justify-center text-slate-300"
+              >
+                {settings.soundEnabled ? (
+                  <Volume2 className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-slate-500" />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Center Navigation Tabs */}
-          <nav className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-white/10 shrink-0">
+          {/* Row 2 on Mobile / Center on Desktop: Boosters & Classeur Tabs */}
+          <nav className="grid grid-cols-2 sm:flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/95 border border-white/10 w-full sm:w-auto shrink-0">
             <button
               onClick={() => setActiveTab('booster')}
-              className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
+              className={`py-1.5 px-3 sm:px-4 rounded-lg text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
                 activeTab === 'booster'
                   ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <PackageOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <PackageOpen className="w-4 h-4" />
               <span>Boosters</span>
             </button>
 
             <button
               onClick={() => setActiveTab('binder')}
-              className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
+              className={`py-1.5 px-3 sm:px-4 rounded-lg text-xs font-extrabold transition flex items-center justify-center gap-1.5 ${
                 activeTab === 'binder'
                   ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <BookOpen className="w-4 h-4" />
               <span>Classeur</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] ${
+                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                   activeTab === 'binder'
                     ? 'bg-slate-950/25 text-slate-950 font-black'
                     : 'bg-white/10 text-amber-300'
@@ -314,29 +367,28 @@ export const App: React.FC = () => {
             </button>
           </nav>
 
-          {/* Right Actions: Direct Pack Import + Google Photos Picker + Install App Mode + Sound Toggle */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          {/* Desktop Right Actions */}
+          <div className="hidden sm:flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => directPackInputRef.current?.click()}
               disabled={isImportingPack}
               title="Importer un Pack (.json)"
-              className="px-2 sm:px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-[11px] sm:text-xs font-extrabold text-pink-200 transition flex items-center gap-1 shadow-sm disabled:opacity-50"
+              className="px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-xs font-extrabold text-pink-200 transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
             >
               {isImportingPack ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-pink-300" />
+                <Loader2 className="w-4 h-4 animate-spin text-pink-300" />
               ) : (
-                <Download className="w-3.5 h-3.5 text-pink-300" />
+                <Download className="w-4 h-4 text-pink-300" />
               )}
-              <span className="hidden sm:inline">Importer un Pack</span>
-              <span className="sm:hidden">Pack</span>
+              <span>Importer un Pack</span>
             </button>
 
             <button
               onClick={() => setIsPhotoManagerOpen(true)}
               title="Google Photos & Gestion du Pack"
-              className="px-2 sm:px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/50 text-[11px] sm:text-xs font-bold text-indigo-100 transition flex items-center gap-1 shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/50 text-xs font-bold text-indigo-100 transition flex items-center gap-1.5 shadow-sm"
             >
-              <Images className="w-3.5 h-3.5 text-amber-300" />
+              <Images className="w-4 h-4 text-amber-300" />
               <span className="hidden md:inline">Google Photos</span>
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-950/80 text-amber-300 text-[10px] font-extrabold border border-indigo-400/30">
                 {customCards.length}
@@ -346,16 +398,16 @@ export const App: React.FC = () => {
             <button
               onClick={() => setIsInstallModalOpen(true)}
               title="Installer en mode Application sur le téléphone"
-              className="px-2 sm:px-3 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/30 border border-amber-400/50 text-[11px] sm:text-xs font-extrabold text-amber-200 transition flex items-center gap-1 shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/30 border border-amber-400/50 text-xs font-extrabold text-amber-200 transition flex items-center gap-1.5 shadow-sm"
             >
-              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+              <Smartphone className="w-4 h-4 text-amber-400" />
               <span className="hidden lg:inline">Mode App</span>
             </button>
 
             <button
               onClick={() => handleUpdateSettings({ soundEnabled: !settings.soundEnabled })}
               title={settings.soundEnabled ? 'Couper le son' : 'Activer le son'}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 hover:text-amber-300 transition"
+              className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 hover:text-amber-300 transition"
             >
               {settings.soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-amber-400" />

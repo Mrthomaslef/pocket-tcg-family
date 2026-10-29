@@ -18,43 +18,32 @@
   }
 }
 
-/* iPhone Dynamic Island & Notch Safe Area Utilities (Browser + Standalone PWA App Mode) */
+/* iPhone Dynamic Island & Notch Safe Area Utilities — Always leaves 60px top clearance on mobile so Dynamic Island never blocks buttons */
 .safe-top-header {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: max(env(safe-area-inset-top, 0px), 10px);
 }
 
 .safe-bottom-stage {
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
 }
 
 .safe-modal-overlay {
-  padding-top: max(env(safe-area-inset-top, 0px), 12px);
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
-  padding-left: max(env(safe-area-inset-left, 0px), 8px);
-  padding-right: max(env(safe-area-inset-right, 0px), 8px);
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  padding-left: max(env(safe-area-inset-left, 0px), 10px);
+  padding-right: max(env(safe-area-inset-right, 0px), 10px);
 }
 
-.ios-standalone .safe-top-header {
-  padding-top: max(env(safe-area-inset-top, 56px), 54px);
-}
-.ios-standalone .safe-bottom-stage {
-  padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
-}
-.ios-standalone .safe-modal-overlay {
-  padding-top: max(env(safe-area-inset-top, 56px), 56px);
-  padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
-}
-
-@media all and (display-mode: standalone) {
+@media (max-width: 640px) {
   .safe-top-header {
-    padding-top: max(env(safe-area-inset-top, 56px), 54px);
+    padding-top: max(env(safe-area-inset-top, 60px), 60px);
   }
   .safe-bottom-stage {
-    padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+    padding-bottom: max(env(safe-area-inset-bottom, 22px), 18px);
   }
   .safe-modal-overlay {
-    padding-top: max(env(safe-area-inset-top, 56px), 56px);
-    padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+    padding-top: max(env(safe-area-inset-top, 62px), 62px);
+    padding-bottom: max(env(safe-area-inset-bottom, 22px), 18px);
   }
 }
 
