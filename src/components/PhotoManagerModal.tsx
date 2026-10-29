@@ -312,8 +312,8 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-white/15 p-5 sm:p-7 shadow-2xl my-auto">
+    <div className="safe-modal-overlay fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-full overflow-y-auto rounded-3xl bg-slate-900 border border-white/15 p-5 sm:p-7 shadow-2xl">
         <button
           onClick={() => {
             abortControllerRef.current?.abort();

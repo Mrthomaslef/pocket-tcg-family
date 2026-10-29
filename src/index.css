@@ -18,6 +18,46 @@
   }
 }
 
+/* iPhone Dynamic Island & Notch Safe Area Utilities (Browser + Standalone PWA App Mode) */
+.safe-top-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom-stage {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+.safe-modal-overlay {
+  padding-top: max(env(safe-area-inset-top, 0px), 12px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+  padding-left: max(env(safe-area-inset-left, 0px), 8px);
+  padding-right: max(env(safe-area-inset-right, 0px), 8px);
+}
+
+.ios-standalone .safe-top-header {
+  padding-top: max(env(safe-area-inset-top, 56px), 54px);
+}
+.ios-standalone .safe-bottom-stage {
+  padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+}
+.ios-standalone .safe-modal-overlay {
+  padding-top: max(env(safe-area-inset-top, 56px), 56px);
+  padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+}
+
+@media all and (display-mode: standalone) {
+  .safe-top-header {
+    padding-top: max(env(safe-area-inset-top, 56px), 54px);
+  }
+  .safe-bottom-stage {
+    padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+  }
+  .safe-modal-overlay {
+    padding-top: max(env(safe-area-inset-top, 56px), 56px);
+    padding-bottom: max(env(safe-area-inset-bottom, 24px), 20px);
+  }
+}
+
 /* 3D Perspective utilities */
 .perspective-1000 {
   perspective: 1000px;

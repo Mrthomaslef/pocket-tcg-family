@@ -24,11 +24,11 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn"
+      className="safe-modal-overlay fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center animate-fadeIn overflow-hidden"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md rounded-3xl bg-gradient-to-b from-slate-900 via-indigo-950/95 to-slate-900 border border-amber-400/30 p-5 sm:p-6 shadow-[0_0_60px_rgba(0,0,0,0.9)] max-h-[90dvh] overflow-y-auto"
+        className="relative w-full max-w-md max-h-full rounded-3xl bg-gradient-to-b from-slate-900 via-indigo-950/95 to-slate-900 border border-amber-400/30 p-5 sm:p-6 shadow-[0_0_60px_rgba(0,0,0,0.9)] overflow-y-auto"
       >
         {/* Close Button */}
         <button

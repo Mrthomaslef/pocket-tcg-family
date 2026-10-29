@@ -418,7 +418,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   );
 
   return (
-    <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-2.5 sm:px-4 py-2 flex flex-col items-center justify-between overflow-hidden relative select-none">
+    <div className="safe-bottom-stage flex-1 min-h-0 w-full max-w-5xl mx-auto px-2.5 sm:px-4 py-1.5 flex flex-col items-center justify-between overflow-hidden relative select-none">
       {/* Full-Screen Dramatic Light Flash on Pack Burst / Hit Flip */}
       {screenFlash && (
         <div

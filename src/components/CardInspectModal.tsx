@@ -95,11 +95,11 @@ export const CardInspectModal: React.FC<CardInspectModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+      className="safe-modal-overlay fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center overflow-hidden"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-4xl max-h-[94dvh] rounded-3xl bg-slate-900/95 border border-white/15 shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full max-w-4xl max-h-full rounded-3xl bg-slate-900/95 border border-white/15 shadow-2xl flex flex-col overflow-hidden"
       >
         {/* Pinned Top Bar so the Close / Back button is ALWAYS 100% visible on any phone */}
         <div className="shrink-0 z-50 flex items-center justify-between gap-2 px-4 py-3 bg-slate-950/90 border-b border-white/10">

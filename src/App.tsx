@@ -85,8 +85,15 @@ export const App: React.FC = () => {
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
 
-  // Capture PWA beforeinstallprompt event if supported
+  // Capture PWA beforeinstallprompt event if supported & detect iOS standalone mode for Dynamic Island safe area
   useEffect(() => {
+    const isStandalone =
+      (window.navigator as any).standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+      document.documentElement.classList.add('ios-standalone');
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredInstallPrompt(e);
@@ -248,8 +255,8 @@ export const App: React.FC = () => {
         onChange={(e) => handleDirectPackFileSelected(e.target.files)}
       />
 
-      {/* ==================== TOP NAVIGATION HEADER (Single compact row on all phones) ==================== */}
-      <header className="shrink-0 z-40 backdrop-blur-xl bg-slate-950/85 border-b border-white/10">
+      {/* ==================== TOP NAVIGATION HEADER (Single compact row + Dynamic Island safe area) ==================== */}
+      <header className="safe-top-header shrink-0 z-40 backdrop-blur-xl bg-slate-950/90 border-b border-white/10">
         <div className="max-w-6xl mx-auto px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3">
           {/* Brand Logo */}
           <div
