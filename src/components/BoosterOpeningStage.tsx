@@ -6,10 +6,8 @@ import { soundFX } from '../utils/soundFX';
 import { HoloCard } from './HoloCard';
 import {
   Sparkles,
-  Scissors,
   RotateCcw,
   Images,
-  ChevronRight,
   Crown,
   Flame,
   Hand,
@@ -31,8 +29,9 @@ interface SparkParticle {
   id: number;
   x: number;
   y: number;
-  vx: number;
-  vy: number;
+  size: number;
+  angle: number;
+  distance: number;
   color: string;
 }
 
@@ -52,17 +51,22 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const [isDraggingTear, setIsDraggingTear] = useState<boolean>(false);
   const [packTilt, setPackTilt] = useState({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
   const [sparks, setSparks] = useState<SparkParticle[]>([]);
+  const [screenFlash, setScreenFlash] = useState<boolean>(false);
 
   // Pulled cards in current booster
   const [pulledCards, setPulledCards] = useState<PulledCardResult[]>([]);
   const [isGodPack, setIsGodPack] = useState<boolean>(false);
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
 
+  // Mystery Hit Card Face-Down Flip state (for Holo / Ultra / Crown cards!)
+  const [isCurrentCardFaceDown, setIsCurrentCardFaceDown] = useState<boolean>(false);
+
   // Card swipe animation state
   const [cardSwipeOffset, setCardSwipeOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isSwipingCard, setIsSwipingCard] = useState<boolean>(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState<boolean>(false);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [exitDirection, setExitDirection] = useState<{ x: number; y: number }>({ x: 420, y: -40 });
+  const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const packRef = useRef<HTMLDivElement>(null);
   const customPhotosCount = allCards.filter((c) => c.isCustomPhoto).length;
@@ -89,53 +93,91 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     return '#38bdf8';
   };
 
+  const isBigHitRarity = (rarity: string) =>
+    rarity === 'holo' || rarity === 'ultra' || rarity === 'crown';
+
   // Trigger confetti for Ultra Rare or Crown cards
   const triggerRarityConfetti = (rarity: string) => {
     if (rarity === 'crown') {
       confetti({
-        particleCount: 90,
-        spread: 80,
-        origin: { y: 0.55 },
+        particleCount: 110,
+        spread: 90,
+        origin: { y: 0.52 },
         colors: ['#fbbf24', '#fef08a', '#f59e0b', '#ffffff'],
       });
     } else if (rarity === 'ultra') {
       confetti({
-        particleCount: 60,
-        spread: 70,
+        particleCount: 75,
+        spread: 75,
         origin: { y: 0.55 },
         colors: ['#f472b6', '#c084fc', '#38bdf8', '#fbbf24'],
+      });
+    } else if (rarity === 'holo') {
+      confetti({
+        particleCount: 35,
+        spread: 55,
+        origin: { y: 0.58 },
+        colors: ['#e879f9', '#38bdf8', '#fde047'],
       });
     }
   };
 
-  // Handle tearing drag across the booster top
+  // Start tearing from the left side of the booster seam
+  const handleSeamPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (phase !== 'ready' || !packRef.current) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const rect = packRef.current.getBoundingClientRect();
+    const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
+    // Must start on the left side (0% to 35%) or near current tear progress
+    if (relX <= 0.38 || Math.abs(relX * 100 - tearProgress) < 25) {
+      setIsDraggingTear(true);
+      soundFX.playNotchGrab();
+      const startPct = Math.max(tearProgress, Math.min(18, Math.round(relX * 100)));
+      setTearProgress(startPct);
+    }
+  };
+
+  // Update progressive foil tear as finger/mouse slices across the pack
   const updateTearFromClientX = (clientX: number, clientY: number) => {
-    if (!packRef.current || phase !== 'ready') return;
+    if (!packRef.current || phase !== 'ready' || !isDraggingTear) return;
     const rect = packRef.current.getBoundingClientRect();
     const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     const percentage = Math.round(relX * 100);
 
-    // Allow smooth progressive tearing (or starting from left side)
-    if (percentage > tearProgress - 15) {
-      const nextProgress = Math.max(tearProgress, percentage);
-      setTearProgress(nextProgress);
-      soundFX.playTearStep(nextProgress / 100);
+    // Smooth forward slicing without jumping from 0% straight to 100%
+    if (percentage > tearProgress && percentage - tearProgress <= 45) {
+      setTearProgress(percentage);
+      soundFX.playTearStep(percentage / 100);
 
-      // Spawn metallic foil sparks
+      // Spawn burst of metallic & glowing sparks at the tear point
       const glowColor = getPackSeamGlowColor();
-      const newSparks: SparkParticle[] = Array.from({ length: 3 }).map((_, i) => ({
+      const newSparks: SparkParticle[] = Array.from({ length: 5 }).map((_, i) => ({
         id: Date.now() + Math.random() + i,
-        x: relX * 100,
-        y: Math.max(8, Math.min(26, ((clientY - rect.top) / rect.height) * 100)),
-        vx: (Math.random() - 0.3) * 35,
-        vy: (Math.random() - 0.8) * 35,
+        x: percentage,
+        y: Math.max(10, Math.min(24, ((clientY - rect.top) / rect.height) * 100)),
+        size: 4 + Math.random() * 6,
+        angle: -90 + (Math.random() - 0.5) * 140,
+        distance: 25 + Math.random() * 55,
         color: i % 2 === 0 ? '#ffffff' : glowColor,
       }));
-      setSparks((prev) => [...prev.slice(-15), ...newSparks]);
+      setSparks((prev) => [...prev.slice(-24), ...newSparks]);
 
-      if (nextProgress >= 86) {
+      if (percentage >= 88) {
         completePackTear();
       }
+    }
+  };
+
+  // If user releases finger before finishing the tear, snap back with tension!
+  const handleReleaseTearEarly = () => {
+    if (!isDraggingTear) return;
+    setIsDraggingTear(false);
+    if (tearProgress < 88 && phase === 'ready') {
+      setTearProgress(0);
+      setSparks([]);
     }
   };
 
@@ -143,6 +185,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     if (phase !== 'ready') return;
     setIsDraggingTear(false);
     setTearProgress(100);
+    setScreenFlash(true);
+    setTimeout(() => setScreenFlash(false), 450);
 
     const drawn = pendingPackRef.current || drawBoosterPack(allCards, 5);
     const results: PulledCardResult[] = drawn.cards.map((card, idx) => ({
@@ -151,9 +195,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       pullIndex: idx,
     }));
 
-    const hasBigHit = results.some(
-      (r) => r.card.rarity === 'ultra' || r.card.rarity === 'crown' || r.card.rarity === 'holo'
-    );
+    const hasBigHit = results.some((r) => isBigHitRarity(r.card.rarity));
 
     soundFX.playPackBurst(hasBigHit);
     setPulledCards(results);
@@ -167,13 +209,16 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     setTimeout(() => {
       setPhase('stack');
       if (results[0]) {
-        soundFX.playRarityReveal(results[0].card.rarity);
-        triggerRarityConfetti(results[0].card.rarity);
+        const firstIsHit = isBigHitRarity(results[0].card.rarity);
+        setIsCurrentCardFaceDown(firstIsHit);
+        if (!firstIsHit) {
+          soundFX.playRarityReveal(results[0].card.rarity);
+        }
       }
-    }, 680);
+    }, 850);
   };
 
-  // Booster 3D hover tilt when not tearing
+  // Booster 3D hover tilt when inspecting pack
   const handlePackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isDraggingTear) {
       updateTearFromClientX(e.clientX, e.clientY);
@@ -183,21 +228,37 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     const rect = packRef.current.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width) * 100;
     const py = ((e.clientY - rect.top) / rect.height) * 100;
-    const ry = ((px - 50) / 50) * 12;
-    const rx = -((py - 50) / 50) * 10;
+    const ry = ((px - 50) / 50) * 14;
+    const rx = -((py - 50) / 50) * 11;
     setPackTilt({ rx, ry, glareX: px, glareY: py });
   };
 
   const handlePackPointerLeave = () => {
-    if (isDraggingTear && tearProgress < 86) {
-      setIsDraggingTear(false);
+    if (isDraggingTear) {
+      handleReleaseTearEarly();
     }
     setPackTilt({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
   };
 
-  // Swipe / Advance to next card in the 5-card stack
-  const advanceToNextCard = () => {
+  // Flip a face-down Mystery Hit card with dramatic reveal!
+  const revealFaceDownHitCard = () => {
+    if (!isCurrentCardFaceDown || !pulledCards[currentCardIndex]) return;
+    const currentCard = pulledCards[currentCardIndex].card;
+    setIsCurrentCardFaceDown(false);
+    setScreenFlash(true);
+    setTimeout(() => setScreenFlash(false), 380);
+    soundFX.playRarityReveal(currentCard.rarity);
+    triggerRarityConfetti(currentCard.rarity);
+  };
+
+  // Swipe / Fling the current card off the stack to reveal the next card
+  const flingCurrentCardOffStack = (dirX: number, dirY: number) => {
     if (isAnimatingOut) return;
+    const norm = Math.hypot(dirX, dirY) || 1;
+    const targetX = (dirX / norm) * 480;
+    const targetY = (dirY / norm) * 280 - 30;
+
+    setExitDirection({ x: targetX, y: targetY });
     setIsAnimatingOut(true);
     soundFX.playCardSwipe();
 
@@ -211,15 +272,19 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       } else {
         setCurrentCardIndex(nextIdx);
         const nextCard = pulledCards[nextIdx].card;
-        soundFX.playRarityReveal(nextCard.rarity);
-        triggerRarityConfetti(nextCard.rarity);
+        const nextIsHit = isBigHitRarity(nextCard.rarity);
+        setIsCurrentCardFaceDown(nextIsHit);
+        if (!nextIsHit) {
+          soundFX.playRarityReveal(nextCard.rarity);
+        }
       }
-    }, 240);
+    }, 270);
   };
 
   const handleCardStackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isAnimatingOut) return;
-    swipeStartRef.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    swipeStartRef.current = { x: e.clientX, y: e.clientY, time: performance.now() };
     setIsSwipingCard(true);
   };
 
@@ -231,15 +296,30 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   };
 
   const handleCardStackPointerUp = () => {
-    if (!isSwipingCard) return;
+    if (!isSwipingCard || !swipeStartRef.current) return;
     setIsSwipingCard(false);
-    const dist = Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y);
-    if (dist > 65) {
-      advanceToNextCard();
+
+    const dx = cardSwipeOffset.x;
+    const dy = cardSwipeOffset.y;
+    const dist = Math.hypot(dx, dy);
+    const elapsed = Math.max(1, performance.now() - swipeStartRef.current.time);
+    const velocity = dist / elapsed; // px per ms
+
+    swipeStartRef.current = null;
+
+    // If card is face-down (Mystery Hit!), a tap or small swipe flips it face-up first!
+    if (isCurrentCardFaceDown) {
+      setCardSwipeOffset({ x: 0, y: 0 });
+      revealFaceDownHitCard();
+      return;
+    }
+
+    // If user dragged far enough (>75px) or flicked quickly (velocity > 0.45 and dist > 30px), fling card off!
+    if (dist > 75 || (velocity > 0.45 && dist > 30)) {
+      flingCurrentCardOffStack(dx || 1, dy);
     } else {
       setCardSwipeOffset({ x: 0, y: 0 });
     }
-    swipeStartRef.current = null;
   };
 
   const resetForNextBooster = () => {
@@ -247,6 +327,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     setSparks([]);
     setPulledCards([]);
     setCurrentCardIndex(0);
+    setIsCurrentCardFaceDown(false);
     setPhase('ready');
   };
 
@@ -254,8 +335,30 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const currentPulled = pulledCards[currentCardIndex];
   const nextPulled = pulledCards[currentCardIndex + 1];
 
+  // Dynamic shake intensity & camera zoom as you slice the booster
+  const shakeOffset =
+    isDraggingTear && tearProgress > 5
+      ? {
+          x: (Math.random() - 0.5) * (2 + (tearProgress / 100) * 8),
+          y: (Math.random() - 0.5) * (2 + (tearProgress / 100) * 8),
+        }
+      : { x: 0, y: 0 };
+
+  const tensionScale =
+    phase === 'bursting' ? 1.15 : 1 + (tearProgress / 100) * 0.09;
+
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-4 flex flex-col items-center">
+    <div className="w-full max-w-5xl mx-auto px-4 py-4 flex flex-col items-center relative">
+      {/* Full-Screen Dramatic Light Flash on Pack Burst / Hit Flip */}
+      {screenFlash && (
+        <div
+          style={{
+            background: `radial-gradient(circle, #ffffff 0%, ${seamGlowHex} 50%, transparent 100%)`,
+          }}
+          className="fixed inset-0 z-50 pointer-events-none animate-ping opacity-70"
+        />
+      )}
+
       {/* Subtle Prompt if user hasn't imported real Google Photos yet */}
       {customPhotosCount === 0 && (
         <div className="w-full max-w-2xl mb-5 rounded-2xl bg-gradient-to-r from-indigo-950/90 via-purple-950/90 to-slate-900/90 border border-amber-400/40 p-3.5 sm:px-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
@@ -282,11 +385,11 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
         </div>
       )}
 
-      {/* ==================== PHASE 1 & 2: BOOSTER SELECTION & TEARING ==================== */}
+      {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING ==================== */}
       {(phase === 'ready' || phase === 'bursting') && (
         <div className="w-full flex flex-col items-center">
           {/* Booster Edition Selector Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
             {BOOSTER_SERIES.map((series) => {
               const active = series.id === selectedSeries.id;
               return (
@@ -309,133 +412,195 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             })}
           </div>
 
-          {/* Instruction Banner */}
-          <div className="mb-4 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-amber-400/30 text-amber-200 text-xs font-semibold shadow-inner">
-            <Scissors className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+          {/* Interactive Gesture Prompt */}
+          <div className="mb-5 flex items-center gap-2.5 px-5 py-2 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-200 text-xs font-bold shadow-[0_0_20px_rgba(251,191,36,0.15)]">
+            <Hand className="w-4 h-4 text-amber-400 animate-bounce" />
             <span>
               {tearProgress === 0
-                ? 'Glissez votre doigt ou la souris sur la ligne pointillée pour déchirer le booster !'
-                : tearProgress < 86
-                ? `Continuez de déchirer... (${tearProgress}%)`
-                : 'Ouverture magique !'}
+                ? 'Attrapez l’encoche brillante à gauche et glissez jusqu’à droite pour déchirer le sachet !'
+                : tearProgress < 88
+                ? `Continuez de glisser jusqu’au bout pour ouvrir ! (${tearProgress}%)`
+                : '✨ Explosion du booster !'}
             </span>
           </div>
 
-          {/* 3D Interactive Booster Pack */}
-          <div className="relative flex items-center justify-center my-2 perspective-1500">
-            {/* Internal Seam Light Burst when tearing or bursting */}
+          {/* 3D Interactive Booster Pack Stage */}
+          <div className="relative flex items-center justify-center my-3 perspective-1500">
+            {/* Ambient Rarity Halo Behind Booster */}
             <div
               style={{
-                opacity: phase === 'bursting' ? 1 : tearProgress / 90,
-                transform: `scale(${phase === 'bursting' ? 2.2 : 0.8 + (tearProgress / 100) * 0.6})`,
-                background: `radial-gradient(circle, ${seamGlowHex} 0%, transparent 70%)`,
+                opacity: phase === 'bursting' ? 1 : 0.15 + (tearProgress / 100) * 0.85,
+                transform: `scale(${
+                  phase === 'bursting' ? 2.4 : 0.85 + (tearProgress / 100) * 0.75
+                })`,
+                background: `radial-gradient(circle, ${seamGlowHex} 0%, transparent 68%)`,
               }}
-              className="absolute w-80 h-80 rounded-full pointer-events-none blur-2xl transition-all duration-300 z-0"
+              className="absolute w-80 h-80 rounded-full pointer-events-none blur-2xl transition-all duration-200 z-0"
             />
+
+            {/* Rising Card Stack Inside the Pack (visible as top tears and during burst!) */}
+            <div
+              style={{
+                opacity: phase === 'bursting' ? 1 : Math.max(0, (tearProgress - 20) / 80),
+                transform:
+                  phase === 'bursting'
+                    ? 'translateY(-35px) scale(0.95)'
+                    : `translateY(${40 - (tearProgress / 100) * 35}px) scale(0.84)`,
+                transition: 'all 500ms cubic-bezier(0.22, 1, 0.36, 1)',
+              }}
+              className="absolute z-10 w-[260px] h-[380px] rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 p-1.5 shadow-[0_0_50px_rgba(251,191,36,0.8)] pointer-events-none"
+            >
+              <div className="w-full h-full rounded-xl bg-slate-950 flex items-center justify-center border border-amber-300/50">
+                <Crown className="w-16 h-16 text-amber-300 animate-pulse" />
+              </div>
+            </div>
 
             {/* THE FOIL BOOSTER PACK */}
             <div
               ref={packRef}
-              onPointerDown={(e) => {
-                setIsDraggingTear(true);
-                updateTearFromClientX(e.clientX, e.clientY);
-              }}
+              onPointerDown={handleSeamPointerDown}
               onPointerMove={handlePackPointerMove}
-              onPointerUp={() => setIsDraggingTear(false)}
+              onPointerUp={handleReleaseTearEarly}
               onPointerLeave={handlePackPointerLeave}
               style={{
-                transform:
-                  phase === 'bursting'
-                    ? 'scale(1.18) translateY(30px)'
-                    : `rotateX(${packTilt.rx}deg) rotateY(${packTilt.ry}deg) ${
-                        tearProgress > 0 && tearProgress < 86
-                          ? `translate(${(Math.random() - 0.5) * 3}px, ${(Math.random() - 0.5) * 3}px)`
-                          : ''
-                      }`,
-                opacity: phase === 'bursting' ? 0 : 1,
+                transform: `rotateX(${packTilt.rx}deg) rotateY(${packTilt.ry}deg) translate(${shakeOffset.x}px, ${shakeOffset.y}px) scale(${tensionScale})`,
                 transition: isDraggingTear
                   ? 'none'
-                  : 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease',
+                  : 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1)',
               }}
-              className="relative z-10 w-[290px] sm:w-[320px] h-[450px] sm:h-[490px] select-none cursor-grab active:cursor-grabbing touch-none"
+              className="relative z-20 w-[300px] sm:w-[330px] h-[465px] sm:h-[505px] select-none touch-none"
             >
-              {/* ================= TOP TEARABLE FOIL STRIP ================= */}
-              <div
-                style={{
-                  transformOrigin: '100% 100%',
-                  transform:
-                    phase === 'bursting'
-                      ? 'translateY(-140px) rotate(28deg) scale(0.9)'
-                      : `translateY(${-tearProgress * 0.28}px) rotate(${tearProgress * 0.18}deg)`,
-                  opacity: phase === 'bursting' ? 0 : 1,
-                  transition: isDraggingTear ? 'none' : 'all 350ms ease',
-                }}
-                className="absolute top-0 inset-x-0 h-[76px] z-30 rounded-t-2xl overflow-hidden shadow-lg"
-              >
-                {/* Crimped Silver Foil Ridges */}
-                <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] border-b border-white/40" />
+              {/* ================= VOLUMETRIC GOD RAYS SHOOTING OUT OF THE TORN SEAM ================= */}
+              {tearProgress > 4 && (
                 <div
-                  className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
+                  style={{
+                    width: `${tearProgress}%`,
+                    opacity: Math.min(1, tearProgress / 30),
+                  }}
+                  className="absolute top-[12px] left-0 h-[72px] z-20 pointer-events-none overflow-hidden"
                 >
-                  <div className="absolute inset-0 booster-metallic-sheen opacity-50" />
-                  <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white/90 drop-shadow">
-                    {selectedSeries.badgeText}
-                  </span>
+                  <div
+                    style={{
+                      background: `conic-gradient(from 180deg at 50% 100%, transparent 0deg, ${seamGlowHex} 35deg, #ffffff 55deg, ${seamGlowHex} 75deg, transparent 110deg)`,
+                    }}
+                    className="w-full h-full blur-md opacity-90 animate-pulse"
+                  />
                 </div>
-              </div>
+              )}
 
-              {/* ================= GLOWING INTERNAL SEAM (Revealed as top tears) ================= */}
+              {/* ================= ALREADY-PEELED LEFT FOIL STRIP (Curls & lifts in 3D!) ================= */}
+              {tearProgress > 0 && (
+                <div
+                  style={{
+                    clipPath: `polygon(0 0, ${tearProgress}% 0, ${tearProgress}% 100%, 0 100%)`,
+                    transformOrigin: `${Math.min(100, tearProgress + 5)}% 100%`,
+                    transform:
+                      phase === 'bursting'
+                        ? 'translate(160px, -220px) rotate(42deg) scale(0.8)'
+                        : `translateY(${-6 - tearProgress * 0.38}px) rotate(${
+                            -4 - tearProgress * 0.22
+                          }deg) skewX(${-tearProgress * 0.12}deg)`,
+                    opacity: phase === 'bursting' ? 0 : 1,
+                    transition: isDraggingTear ? 'none' : 'all 420ms ease-out',
+                  }}
+                  className="absolute top-0 inset-x-0 h-[82px] z-40 rounded-t-2xl overflow-hidden shadow-[0_18px_30px_rgba(0,0,0,0.65)] pointer-events-none"
+                >
+                  {/* Crimped Silver Foil Ridges */}
+                  <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#e2e8f0_0px,#e2e8f0_3px,#64748b_3px,#64748b_6px)] border-b border-white/50" />
+                  <div
+                    className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
+                  >
+                    {/* Shiny Metallic Silver Foil Backside Reflection */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-200/60 via-white/25 to-transparent" />
+                    <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white drop-shadow">
+                      {selectedSeries.badgeText}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ================= UNCUT RIGHT FOIL STRIP (Stays attached until sliced!) ================= */}
+              {tearProgress < 100 && (
+                <div
+                  style={{
+                    clipPath: `polygon(${tearProgress}% 0, 100% 0, 100% 100%, ${tearProgress}% 100%)`,
+                  }}
+                  className="absolute top-0 inset-x-0 h-[82px] z-30 rounded-t-2xl overflow-hidden pointer-events-none"
+                >
+                  <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] border-b border-white/40" />
+                  <div
+                    className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
+                  >
+                    <div className="absolute inset-0 booster-metallic-sheen opacity-50" />
+                    <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white/90 drop-shadow">
+                      {selectedSeries.badgeText}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* ================= MOLTEN ENERGY SEAM & TACTILE TEAR HANDLE ================= */}
               <div
-                style={{
-                  opacity: Math.min(1, tearProgress / 25),
-                  boxShadow: `0 0 ${15 + tearProgress * 0.5}px ${seamGlowHex}`,
-                  backgroundColor: seamGlowHex,
-                }}
-                className="absolute top-[70px] left-3 right-3 h-3 rounded-full z-20 pointer-events-none transition-opacity"
-              />
+                onPointerDown={handleSeamPointerDown}
+                className="absolute top-[60px] -inset-x-4 h-12 z-50 flex items-center cursor-grab active:cursor-grabbing"
+              >
+                <div className="w-full h-full flex items-center relative px-4">
+                  {/* Uncut perforated foil notch line */}
+                  <div className="w-full border-b-2 border-dashed border-amber-200/80 shadow-[0_0_12px_rgba(251,191,36,0.6)]" />
 
-              {/* ================= INTERACTIVE CUT LINE GUIDE ================= */}
-              <div className="absolute top-[62px] -inset-x-3 h-9 z-40 flex items-center">
-                <div className="w-full h-full rounded-full flex items-center relative px-3">
-                  {/* Uncut dotted line */}
-                  <div className="w-full border-b-2 border-dashed border-amber-300/90 shadow-[0_0_10px_rgba(251,191,36,0.8)]" />
-                  {/* Progress Glowing Laser Line */}
+                  {/* Glowing Sliced Energy Trail */}
                   <div
                     style={{
                       width: `${tearProgress}%`,
-                      backgroundColor: seamGlowHex,
-                      boxShadow: `0 0 18px ${seamGlowHex}, 0 0 32px #ffffff`,
+                      backgroundColor: '#ffffff',
+                      boxShadow: `0 0 12px #ffffff, 0 0 25px ${seamGlowHex}, 0 0 45px ${seamGlowHex}`,
                     }}
-                    className="absolute left-3 h-1.5 rounded-full transition-all duration-75"
+                    className="absolute left-4 h-2 rounded-full transition-none"
                   />
-                  {/* Sliding Scissor / Spark Handle */}
-                  <div
-                    style={{ left: `calc(${Math.min(94, Math.max(4, tearProgress))}% )` }}
-                    className="absolute -translate-x-1/2 w-8 h-8 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-[0_0_20px_rgba(251,191,36,1)] border-2 border-white transition-all duration-75"
-                  >
-                    <Scissors className="w-4 h-4" />
-                  </div>
+
+                  {/* Glowing Pull-Tab / Finger Target */}
+                  {phase === 'ready' && (
+                    <div
+                      style={{
+                        left: `calc(${Math.min(95, Math.max(5, tearProgress))}% )`,
+                        boxShadow: `0 0 25px ${seamGlowHex}, 0 0 45px rgba(251,191,36,0.95)`,
+                      }}
+                      className={`absolute -translate-x-1/2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 text-slate-950 font-display font-black text-[11px] flex items-center gap-1 border-2 border-white transition-transform ${
+                        isDraggingTear ? 'scale-125' : 'scale-100 animate-pulse'
+                      }`}
+                    >
+                      <span>{tearProgress === 0 ? 'TIRER ➔' : `${tearProgress}%`}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* ================= MAIN BOOSTER BODY ================= */}
+              {/* ================= MAIN BOOSTER BODY (Slides down & opens on burst!) ================= */}
               <div
-                className={`absolute top-[74px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_25px_60px_rgba(0,0,0,0.75)] flex flex-col items-center justify-between p-5`}
+                style={{
+                  transform:
+                    phase === 'bursting'
+                      ? 'translateY(180px) scale(0.92) rotateX(-18deg)'
+                      : 'translateY(0px)',
+                  opacity: phase === 'bursting' ? 0 : 1,
+                  transition: 'all 650ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+                className={`absolute top-[80px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_28px_65px_rgba(0,0,0,0.85)] flex flex-col items-center justify-between p-5`}
               >
                 {/* Foil Metallic Specular Reflection */}
                 <div
                   style={{
                     backgroundPosition: `${packTilt.glareX * 2}% ${packTilt.glareY * 2}%`,
                   }}
-                  className="absolute inset-0 booster-metallic-sheen pointer-events-none z-20 opacity-60"
+                  className="absolute inset-0 booster-metallic-sheen pointer-events-none z-20 opacity-65"
                 />
 
                 {/* Decorative background pattern */}
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
 
                 {/* Top Series Emblem */}
-                <div className="relative z-10 text-center mt-1">
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest uppercase mb-1">
+                <div className="relative z-10 text-center mt-1 pointer-events-none">
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest uppercase mb-1">
                     <Sparkles className="w-3 h-3" /> {childName} TCG
                   </div>
                   <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-none">
@@ -446,8 +611,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   </p>
                 </div>
 
-                {/* Central Hero Medallion featuring the Son's Photo */}
-                <div className="relative z-10 my-auto">
+                {/* Central Hero Medallion */}
+                <div className="relative z-10 my-auto pointer-events-none">
                   <div className="w-40 h-40 sm:w-44 sm:h-44 rounded-full p-1.5 bg-gradient-to-tr from-amber-300 via-white to-pink-400 shadow-[0_0_35px_rgba(251,191,36,0.5)]">
                     <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 relative border-2 border-slate-950 flex items-center justify-center">
                       {coverPhotoUrl ? (
@@ -468,58 +633,57 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
                     </div>
                   </div>
-                  <div className=" -mt-3 mx-auto w-max px-3 py-0.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-amber-300 font-display font-black text-xs tracking-wider uppercase shadow-lg relative z-20">
+                  <div className="-mt-3 mx-auto w-max px-3 py-0.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-amber-300 font-display font-black text-xs tracking-wider uppercase shadow-lg relative z-20">
                     ★ 5 CARTES GARANTIES ★
                   </div>
                 </div>
 
                 {/* Bottom Foil Crimp */}
-                <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20">
+                <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20 pointer-events-none">
                   <span>ÉDITION FAMILLE</span>
-                  <span>1 HOLO+ POSSIBLE</span>
+                  <span>1 HOLO+ GARANTIE</span>
                 </div>
-                <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85" />
+                <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85 pointer-events-none" />
               </div>
 
-              {/* Foil Sparks Overlay */}
-              {sparks.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    left: `${s.x}%`,
-                    top: `${s.y}%`,
-                    backgroundColor: s.color,
-                    boxShadow: `0 0 10px ${s.color}`,
-                  }}
-                  className="pointer-events-none absolute w-2 h-2 rounded-full z-50 animate-ping"
-                />
-              ))}
+              {/* Dynamic Flying Foil Sparks Overlay */}
+              {sparks.map((s) => {
+                const rad = (s.angle * Math.PI) / 180;
+                const tx = Math.cos(rad) * s.distance;
+                const ty = Math.sin(rad) * s.distance;
+                return (
+                  <div
+                    key={s.id}
+                    style={{
+                      left: `${s.x}%`,
+                      top: `${s.y}%`,
+                      width: `${s.size}px`,
+                      height: `${s.size}px`,
+                      backgroundColor: s.color,
+                      boxShadow: `0 0 12px ${s.color}, 0 0 20px #ffffff`,
+                      transform: `translate(${tx}px, ${ty}px)`,
+                    }}
+                    className="pointer-events-none absolute rounded-full z-50 animate-ping"
+                  />
+                );
+              })}
             </div>
           </div>
-
-          {/* Quick Open Button for accessibility / 1-click convenience */}
-          <button
-            onClick={completePackTear}
-            className="mt-4 px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-slate-200 hover:text-white transition flex items-center gap-2"
-          >
-            <Scissors className="w-4 h-4 text-amber-400" />
-            Ou cliquez ici pour déchirer d’un coup
-          </button>
         </div>
       )}
 
-      {/* ==================== PHASE 3: CARD-BY-CARD STACK REVEAL ==================== */}
+      {/* ==================== PHASE 3: TACTILE CARD-BY-CARD STACK REVEAL ==================== */}
       {phase === 'stack' && currentPulled && (
         <div className="w-full flex flex-col items-center py-2 animate-fadeIn">
-          {/* Top Progress Bar */}
-          <div className="flex items-center gap-3 mb-5">
+          {/* Top Progress Indicator */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
             {isGodPack && (
-              <div className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-xs tracking-wider uppercase shadow-[0_0_20px_rgba(251,191,36,0.8)] animate-bounce flex items-center gap-1">
+              <div className="px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-xs tracking-wider uppercase shadow-[0_0_20px_rgba(251,191,36,0.8)] animate-bounce flex items-center gap-1">
                 <Crown className="w-4 h-4" /> GOD PACK LÉGENDAIRE !
               </div>
             )}
-            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-white/15 px-3.5 py-1.5 rounded-full">
-              {pulledCards.map((item, idx) => {
+            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-white/15 px-4 py-1.5 rounded-full">
+              {pulledCards.map((_, idx) => {
                 const isCurrent = idx === currentCardIndex;
                 const isPast = idx < currentCardIndex;
                 return (
@@ -536,115 +700,118 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 );
               })}
               <span className="ml-2 text-xs font-bold text-slate-300">
-                Carte {currentCardIndex + 1} / {pulledCards.length}
+                Carte {currentCardIndex + 1} sur {pulledCards.length}
               </span>
             </div>
           </div>
 
           {/* 3D CARD STACK STAGE */}
-          <div className="relative w-[350px] sm:w-[390px] h-[510px] sm:h-[550px] flex items-center justify-center my-1">
+          <div className="relative w-[360px] sm:w-[400px] h-[545px] sm:h-[580px] flex items-center justify-center my-1">
             {/* Ambient Rarity Backlight Aura */}
             <div
               style={{
                 backgroundColor: RARITY_CONFIG[currentPulled.card.rarity].glowHex,
               }}
               className={`absolute w-80 h-96 rounded-full blur-3xl pointer-events-none transition-all duration-500 ${
-                currentPulled.card.rarity === 'crown' || currentPulled.card.rarity === 'ultra'
-                  ? 'opacity-55 scale-110 animate-pulse'
+                isBigHitRarity(currentPulled.card.rarity)
+                  ? 'opacity-65 scale-115 animate-pulse'
                   : 'opacity-25 scale-95'
               }`}
             />
 
-            {/* Next Card Preview Underneath */}
+            {/* Remaining Stack Depth Cards Underneath (Peek at next card as you drag!) */}
             {nextPulled && (
               <div
                 style={{
-                  transform: 'scale(0.94) translateY(14px)',
-                  boxShadow:
-                    nextPulled.card.rarity === 'crown' || nextPulled.card.rarity === 'ultra'
-                      ? `0 0 35px ${RARITY_CONFIG[nextPulled.card.rarity].glowHex}`
-                      : undefined,
+                  transform: `scale(${
+                    0.95 + Math.min(0.05, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 1800)
+                  }) translateY(${
+                    12 - Math.min(12, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 15)
+                  }px)`,
+                  boxShadow: isBigHitRarity(nextPulled.card.rarity)
+                    ? `0 0 40px ${RARITY_CONFIG[nextPulled.card.rarity].glowHex}`
+                    : undefined,
                 }}
-                className="absolute z-10 pointer-events-none opacity-80 transition-transform duration-300 rounded-[18px]"
+                className="absolute z-10 pointer-events-none opacity-90 transition-transform duration-150 rounded-[18px]"
               >
-                <HoloCard card={nextPulled.card} size="lg" interactive={false} />
+                <HoloCard
+                  card={nextPulled.card}
+                  size="lg"
+                  interactive={false}
+                  flipped={isBigHitRarity(nextPulled.card.rarity)}
+                />
               </div>
             )}
 
-            {/* Current Active Top Card (Swipeable / Interactive 3D) */}
+            {/* Current Active Top Card (Swipeable & 3D Flippable!) */}
             <div
               onPointerDown={handleCardStackPointerDown}
               onPointerMove={handleCardStackPointerMove}
               onPointerUp={handleCardStackPointerUp}
               style={{
                 transform: isAnimatingOut
-                  ? `translate(${cardSwipeOffset.x > 0 ? 420 : -420}px, ${cardSwipeOffset.y - 40}px) rotate(${
-                      cardSwipeOffset.x > 0 ? 18 : -18
-                    }deg) scale(0.9)`
+                  ? `translate(${exitDirection.x}px, ${exitDirection.y}px) rotate(${
+                      exitDirection.x > 0 ? 22 : -22
+                    }deg) scale(0.88)`
                   : `translate(${cardSwipeOffset.x}px, ${cardSwipeOffset.y}px) rotate(${
-                      cardSwipeOffset.x * 0.04
+                      cardSwipeOffset.x * 0.045
                     }deg)`,
                 opacity: isAnimatingOut ? 0 : 1,
                 transition: isSwipingCard
                   ? 'none'
-                  : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease',
+                  : 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 250ms ease',
               }}
               className="relative z-20 touch-none cursor-grab active:cursor-grabbing"
             >
+              {/* Mystery Hit Floating Prompt when card is face-down */}
+              {isCurrentCardFaceDown && (
+                <div className="absolute -top-4 inset-x-0 z-40 flex justify-center pointer-events-none">
+                  <div className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-pink-400 to-amber-300 text-slate-950 font-display font-black text-xs tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,1)] animate-bounce border-2 border-white">
+                    ✨ CARTE RARE DÉTECTÉE — TOUCHEZ POUR RETOURNER ! ✨
+                  </div>
+                </div>
+              )}
+
               <HoloCard
                 card={currentPulled.card}
                 size="lg"
-                interactive={true}
-                isNew={currentPulled.isNew}
+                interactive={!isSwipingCard}
+                flipped={isCurrentCardFaceDown}
+                isNew={currentPulled.isNew && !isCurrentCardFaceDown}
               />
             </div>
           </div>
 
-          {/* Rarity Banner & Controls */}
-          <div className="mt-4 flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-extrabold border ${
-                  RARITY_CONFIG[currentPulled.card.rarity].colorClass
-                }`}
-              >
-                {RARITY_CONFIG[currentPulled.card.rarity].stars}{' '}
-                {RARITY_CONFIG[currentPulled.card.rarity].label}
-              </span>
-              {currentPulled.isNew && (
-                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-bold">
-                  Ajoutée au Classeur !
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={advanceToNextCard}
-                className="px-7 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-pink-500 text-slate-950 font-display font-black text-sm shadow-[0_0_25px_rgba(251,191,36,0.4)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
-              >
-                <span>
-                  {currentCardIndex + 1 < pulledCards.length
-                    ? 'Carte Suivante'
-                    : 'Voir le Résumé du Pack'}
-                </span>
-                <ChevronRight className="w-5 h-5" />
-              </button>
-
-              {currentCardIndex + 1 < pulledCards.length && (
-                <button
-                  onClick={() => setPhase('summary')}
-                  className="px-4 py-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-white/15 text-xs font-bold text-slate-300 transition"
+          {/* Rarity Badge & Gesture Instruction (NO auto-advance buttons!) */}
+          <div className="mt-4 flex flex-col items-center gap-2.5">
+            {!isCurrentCardFaceDown && (
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-3.5 py-1 rounded-full text-xs font-extrabold border ${
+                    RARITY_CONFIG[currentPulled.card.rarity].colorClass
+                  }`}
                 >
-                  Tout révéler
-                </button>
-              )}
-            </div>
+                  {RARITY_CONFIG[currentPulled.card.rarity].stars}{' '}
+                  {RARITY_CONFIG[currentPulled.card.rarity].label}
+                </span>
+                {currentPulled.isNew && (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-bold">
+                    Ajoutée au Classeur !
+                  </span>
+                )}
+              </div>
+            )}
 
-            <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <Hand className="w-3.5 h-3.5 text-amber-400" />
-              Inclinez la carte pour admirer les reflets holographiques ou glissez-la sur le côté
-            </p>
+            <div className="px-5 py-2 rounded-full bg-slate-900/85 border border-white/15 text-xs font-bold text-amber-200 flex items-center gap-2 shadow-lg">
+              <Hand className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span>
+                {isCurrentCardFaceDown
+                  ? 'Touchez la carte dorée pour la retourner en 3D !'
+                  : currentCardIndex + 1 < pulledCards.length
+                  ? 'Glissez la carte sur le côté (gauche ou droite) pour découvrir la suivante !'
+                  : 'Glissez cette dernière carte pour voir le résumé de votre booster !'}
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -695,7 +862,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
               className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-base shadow-[0_0_30px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
             >
               <RotateCcw className="w-5 h-5" />
-              Ouvrir un Nouveau Booster !
+              Choisir un Nouveau Booster !
             </button>
           </div>
         </div>

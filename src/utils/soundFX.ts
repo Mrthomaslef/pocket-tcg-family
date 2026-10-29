@@ -8,7 +8,9 @@ class SoundFXEngine {
   private getContext(): AudioContext | null {
     if (!this.enabled) return null;
     if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -19,25 +21,47 @@ class SoundFXEngine {
     return this.ctx;
   }
 
+  public vibrate(pattern: number | number[]) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    } catch {}
+  }
+
   /**
-   * Plays a subtle metallic foil crinkle/tear grain as the user drags across the booster seam
+   * Subtle metallic notch grab sound when starting the tear
+   */
+  public playNotchGrab() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.vibrate(12);
+    this.playTone(880, t, 0.06, 'triangle', 0.08);
+    this.playTone(1320, t + 0.02, 0.08, 'sine', 0.06);
+  }
+
+  /**
+   * Plays a realistic metallic foil crinkle + rising musical tension as the user slices the booster
    */
   public playTearStep(progress: number) {
     const now = performance.now();
-    if (now - this.lastCrinkleTime < 38) return;
+    if (now - this.lastCrinkleTime < 32) return;
     this.lastCrinkleTime = now;
+
+    this.vibrate(6);
 
     const ctx = this.getContext();
     if (!ctx) return;
 
     const t = ctx.currentTime;
 
-    // White noise burst filtered for metallic wrapper crinkle
-    const bufferSize = Math.floor(ctx.sampleRate * 0.045);
+    // 1. Crisp metallic foil tear grain
+    const bufferSize = Math.floor(ctx.sampleRate * 0.05);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.4));
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
     }
 
     const noise = ctx.createBufferSource();
@@ -45,96 +69,94 @@ class SoundFXEngine {
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    // Pitch rises as tear progresses from 0 -> 1
-    filter.frequency.setValueAtTime(1600 + progress * 2600, t);
-    filter.Q.setValueAtTime(3.2, t);
+    filter.frequency.setValueAtTime(1400 + progress * 3400, t);
+    filter.Q.setValueAtTime(3.8, t);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.18, t);
-    gain.gain.exponentialRampToValueAtTime(0.005, t + 0.042);
+    gain.gain.setValueAtTime(0.22, t);
+    gain.gain.exponentialRampToValueAtTime(0.005, t + 0.048);
 
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(ctx.destination);
     noise.start(t);
 
-    // Subtle rising tension tone
-    const osc = ctx.createOscillator();
-    const oscGain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(320 + progress * 680, t);
-    oscGain.gain.setValueAtTime(0.04, t);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-    osc.connect(oscGain);
-    oscGain.connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.05);
+    // 2. Rising crystalline harmonic tension (pitch climbs exponentially as you reach 90%)
+    const baseFreq = 260 + Math.pow(progress, 1.5) * 920;
+    this.playTone(baseFreq, t, 0.07, 'triangle', 0.055);
+    this.playTone(baseFreq * 1.5, t, 0.06, 'sine', 0.03);
   }
 
   /**
-   * Satisfying final rip + crystalline shimmer when the booster top tears off completely
+   * Satisfying final rip + sub-bass boom + heavenly chord burst when the booster tears open
    */
   public playPackBurst(hasHighRarity: boolean) {
+    this.vibrate([25, 30, 60]);
     const ctx = this.getContext();
     if (!ctx) return;
     const t = ctx.currentTime;
 
-    // 1. Crisp tear noise swoosh
-    const bufferSize = Math.floor(ctx.sampleRate * 0.28);
+    // 1. Sub-bass punch impact
+    this.playTone(95, t, 0.45, 'sine', 0.28);
+    this.playTone(65, t + 0.04, 0.55, 'sine', 0.25);
+
+    // 2. Crisp final tear noise swoosh
+    const bufferSize = Math.floor(ctx.sampleRate * 0.32);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.4);
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.3);
     }
     const noise = ctx.createBufferSource();
     noise.buffer = buffer;
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'highpass';
-    filter.frequency.setValueAtTime(900, t);
-    filter.frequency.exponentialRampToValueAtTime(4500, t + 0.25);
+    filter.frequency.setValueAtTime(800, t);
+    filter.frequency.exponentialRampToValueAtTime(5200, t + 0.28);
 
     const nGain = ctx.createGain();
-    nGain.gain.setValueAtTime(0.28, t);
-    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.27);
+    nGain.gain.setValueAtTime(0.32, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
 
     noise.connect(filter);
     filter.connect(nGain);
     nGain.connect(ctx.destination);
     noise.start(t);
 
-    // 2. Magical chord arpeggio
+    // 3. Shimmering arpeggio
     const notes = hasHighRarity
-      ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98] // C Major 9 sparkling
-      : [440, 554.37, 659.25, 880]; // A Major
+      ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98, 2093.0]
+      : [440, 554.37, 659.25, 880, 1108.73];
 
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      const startTime = t + 0.06 + idx * 0.055;
+      osc.type = 'triangle';
+      const startTime = t + 0.05 + idx * 0.05;
       osc.frequency.setValueAtTime(freq, startTime);
 
       gain.gain.setValueAtTime(0.001, startTime);
-      gain.gain.linearRampToValueAtTime(0.11, startTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0008, startTime + 0.65);
+      gain.gain.linearRampToValueAtTime(0.12, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0008, startTime + 0.75);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(startTime);
-      osc.stop(startTime + 0.68);
+      osc.stop(startTime + 0.78);
     });
   }
 
   /**
-   * Card swipe / slide sound when revealing the next card in the stack
+   * Card swipe / slide sound when flinging the top card off the stack
    */
   public playCardSwipe() {
+    this.vibrate(10);
     const ctx = this.getContext();
     if (!ctx) return;
     const t = ctx.currentTime;
 
-    const bufferSize = Math.floor(ctx.sampleRate * 0.11);
+    const bufferSize = Math.floor(ctx.sampleRate * 0.12);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
@@ -146,13 +168,13 @@ class SoundFXEngine {
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1200, t);
-    filter.frequency.exponentialRampToValueAtTime(2800, t + 0.1);
-    filter.Q.setValueAtTime(2.0, t);
+    filter.frequency.setValueAtTime(1100, t);
+    filter.frequency.exponentialRampToValueAtTime(3200, t + 0.11);
+    filter.Q.setValueAtTime(2.2, t);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.16, t);
-    gain.gain.exponentialRampToValueAtTime(0.005, t + 0.11);
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.005, t + 0.12);
 
     noise.connect(filter);
     filter.connect(gain);
@@ -182,6 +204,7 @@ class SoundFXEngine {
     }
 
     if (rarity === 'holo') {
+      this.vibrate(18);
       [587.33, 739.99, 880, 1174.66, 1479.98].forEach((f, i) => {
         this.playTone(f, t + i * 0.05, 0.5, 'triangle', 0.09);
       });
@@ -189,15 +212,17 @@ class SoundFXEngine {
     }
 
     if (rarity === 'ultra' || rarity === 'crown') {
+      this.vibrate([20, 40, 50]);
       // Sub-bass impact + heavenly fanfare
-      this.playTone(110, t, 0.65, 'sine', 0.22);
-      const chord = rarity === 'crown'
-        ? [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.51, 1567.98, 2093.0]
-        : [440, 554.37, 659.25, 880, 1108.73, 1318.51];
+      this.playTone(110, t, 0.7, 'sine', 0.25);
+      const chord =
+        rarity === 'crown'
+          ? [523.25, 659.25, 783.99, 987.77, 1046.5, 1318.51, 1567.98, 2093.0]
+          : [440, 554.37, 659.25, 880, 1108.73, 1318.51];
 
       chord.forEach((f, i) => {
-        this.playTone(f, t + i * 0.045, 0.9, 'triangle', 0.11);
-        this.playTone(f * 1.5, t + 0.1 + i * 0.045, 0.7, 'sine', 0.04);
+        this.playTone(f, t + i * 0.045, 0.95, 'triangle', 0.12);
+        this.playTone(f * 1.5, t + 0.1 + i * 0.045, 0.75, 'sine', 0.05);
       });
     }
   }
