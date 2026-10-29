@@ -116,7 +116,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const pendingPackRef = useRef<{ cards: TCGCard[]; isGodPack: boolean } | null>(null);
   useEffect(() => {
     if (phase === 'ready' && allCards.length > 0) {
-      pendingPackRef.current = drawBoosterPack(allCards, 5);
+      pendingPackRef.current = drawBoosterPack(allCards, 5, selectedSeries.id);
     }
   }, [phase, allCards, selectedSeries]);
 
@@ -253,7 +253,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     setScreenFlash(true);
     setTimeout(() => setScreenFlash(false), 420);
 
-    const drawn = pendingPackRef.current || drawBoosterPack(allCards, 5);
+    const drawn = pendingPackRef.current || drawBoosterPack(allCards, 5, selectedSeries.id);
     const results: PulledCardResult[] = drawn.cards.map((card, idx) => ({
       card,
       isNew: !collection[card.id] || collection[card.id].count === 0,
@@ -494,8 +494,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING (100% 1-screen locked) ==================== */}
       {allCards.length > 0 && (phase === 'ready' || phase === 'bursting') && (
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between overflow-hidden">
-          {/* Top Bar: Booster Edition Selector Pills */}
-          <div className="shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 pt-0.5">
+          {/* Top Bar: 3 Themed Booster Edition Selector Pills */}
+          <div className="shrink-0 grid grid-cols-3 sm:flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-xl pt-0.5">
             {BOOSTER_SERIES.map((series) => {
               const active = series.id === selectedSeries.id;
               return (
@@ -506,14 +506,14 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                     tearProgressRef.current = 0;
                     setTearProgress(0);
                   }}
-                  className={`px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                  className={`px-2 sm:px-3.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 border text-center leading-tight ${
                     active
-                      ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_16px_rgba(251,191,36,0.25)] scale-105'
+                      ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_16px_rgba(251,191,36,0.25)]'
                       : 'bg-slate-900/70 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
                   }`}
                 >
-                  <span>{series.iconEmoji}</span>
-                  <span>{series.name}</span>
+                  <span className="shrink-0">{series.iconEmoji}</span>
+                  <span className="truncate">{series.name}</span>
                 </button>
               );
             })}
@@ -703,14 +703,14 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
 
                   {/* Top Series Emblem */}
-                  <div className="relative z-10 text-center mt-1">
+                  <div className="relative z-10 text-center mt-0.5">
                     <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest mb-1">
                       <Sparkles className="w-3 h-3" /> milTCG
                     </div>
-                    <h2 className="font-display font-black text-2xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-none">
+                    <h2 className="font-display font-black text-lg sm:text-xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-tight">
                       {selectedSeries.name}
                     </h2>
-                    <p className="text-[11px] text-white/85 font-semibold mt-1">
+                    <p className="text-[10px] text-white/90 font-semibold mt-0.5 leading-snug">
                       {selectedSeries.subtitle}
                     </p>
                   </div>
