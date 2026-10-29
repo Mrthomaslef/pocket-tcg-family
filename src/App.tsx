@@ -212,7 +212,13 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-between pb-10">
+    <div
+      className={
+        activeTab === 'booster'
+          ? 'h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col justify-between overscroll-none'
+          : 'min-h-[100dvh] flex flex-col justify-between pb-8'
+      }
+    >
       {/* Hidden Direct Pack File Input accessible from anywhere on Home Page */}
       <input
         ref={directPackInputRef}
@@ -222,58 +228,55 @@ export const App: React.FC = () => {
         onChange={(e) => handleDirectPackFileSelected(e.target.files)}
       />
 
-      {/* ==================== TOP NAVIGATION HEADER ==================== */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/80 border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      {/* ==================== TOP NAVIGATION HEADER (Single compact row on all phones) ==================== */}
+      <header className="shrink-0 z-40 backdrop-blur-xl bg-slate-950/85 border-b border-white/10">
+        <div className="max-w-6xl mx-auto px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3">
           {/* Brand Logo */}
           <div
             onClick={() => setActiveTab('booster')}
-            className="flex items-center gap-2.5 cursor-pointer group"
+            className="flex items-center gap-2 cursor-pointer group shrink-0"
           >
             <img
               src="./icon-192.png"
               alt="milTCG"
-              className="w-11 h-11 rounded-2xl shadow-[0_0_20px_rgba(251,191,36,0.45)] group-hover:scale-105 transition object-cover"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-[0_0_16px_rgba(251,191,36,0.4)] group-hover:scale-105 transition object-cover"
             />
             <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="font-display font-black text-lg sm:text-xl tracking-tight text-white">
-                  mil<span className="text-amber-400">TCG</span>
-                </h1>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
-                {settings.totalPacksOpened} booster(s) ouvert(s) • {ownedUniqueCount}/
-                {allCards.length} cartes
+              <h1 className="font-display font-black text-base sm:text-xl tracking-tight text-white leading-none">
+                mil<span className="text-amber-400">TCG</span>
+              </h1>
+              <p className="text-[10px] text-slate-400 font-medium hidden md:block mt-0.5">
+                {settings.totalPacksOpened} booster(s) • {ownedUniqueCount}/{allCards.length} cartes
               </p>
             </div>
           </div>
 
           {/* Center Navigation Tabs */}
-          <nav className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/90 border border-white/10">
+          <nav className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-white/10 shrink-0">
             <button
               onClick={() => setActiveTab('booster')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
                 activeTab === 'booster'
                   ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <PackageOpen className="w-4 h-4" />
+              <PackageOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Boosters</span>
             </button>
 
             <button
               onClick={() => setActiveTab('binder')}
-              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-4 py-1.5 rounded-lg text-[11px] sm:text-xs font-extrabold transition flex items-center gap-1 ${
                 activeTab === 'binder'
                   ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <BookOpen className="w-4 h-4" />
+              <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Classeur</span>
               <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                className={`px-1.5 py-0.2 rounded-full text-[9px] sm:text-[10px] ${
                   activeTab === 'binder'
                     ? 'bg-slate-950/25 text-slate-950 font-black'
                     : 'bg-white/10 text-amber-300'
@@ -285,26 +288,29 @@ export const App: React.FC = () => {
           </nav>
 
           {/* Right Actions: Direct Pack Import + Google Photos Picker + Sound Toggle */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => directPackInputRef.current?.click()}
               disabled={isImportingPack}
-              className="px-3.5 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-xs font-extrabold text-pink-200 transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              title="Importer un Pack (.json)"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-[11px] sm:text-xs font-extrabold text-pink-200 transition flex items-center gap-1 shadow-sm disabled:opacity-50"
             >
               {isImportingPack ? (
-                <Loader2 className="w-4 h-4 animate-spin text-pink-300" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-pink-300" />
               ) : (
-                <Download className="w-4 h-4 text-pink-300" />
+                <Download className="w-3.5 h-3.5 text-pink-300" />
               )}
-              <span>Importer un Pack</span>
+              <span className="hidden sm:inline">Importer un Pack</span>
+              <span className="sm:hidden">Pack</span>
             </button>
 
             <button
               onClick={() => setIsPhotoManagerOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/50 text-xs font-bold text-indigo-100 transition flex items-center gap-1.5 shadow-sm"
+              title="Google Photos & Gestion du Pack"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/50 text-[11px] sm:text-xs font-bold text-indigo-100 transition flex items-center gap-1 shadow-sm"
             >
-              <Images className="w-4 h-4 text-amber-300" />
-              <span className="hidden sm:inline">Google Photos</span>
+              <Images className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden md:inline">Google Photos</span>
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-950/80 text-amber-300 text-[10px] font-extrabold border border-indigo-400/30">
                 {customCards.length}
               </span>
@@ -313,7 +319,7 @@ export const App: React.FC = () => {
             <button
               onClick={() => handleUpdateSettings({ soundEnabled: !settings.soundEnabled })}
               title={settings.soundEnabled ? 'Couper le son' : 'Activer le son'}
-              className="w-9 h-9 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 hover:text-amber-300 transition"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/10 flex items-center justify-center text-slate-300 hover:text-amber-300 transition"
             >
               {settings.soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-amber-400" />
@@ -326,15 +332,21 @@ export const App: React.FC = () => {
 
         {/* Live Streaming Pack Import Banner */}
         {importStatusText && (
-          <div className="bg-emerald-500/20 border-t border-emerald-400/40 px-4 py-2 text-center text-xs font-bold text-emerald-200 flex items-center justify-center gap-2">
-            {isImportingPack && <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />}
+          <div className="bg-emerald-500/20 border-t border-emerald-400/40 px-3 py-1.5 text-center text-[11px] font-bold text-emerald-200 flex items-center justify-center gap-2">
+            {isImportingPack && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-300" />}
             <span>{importStatusText}</span>
           </div>
         )}
       </header>
 
       {/* ==================== MAIN CONTENT STAGE ==================== */}
-      <main className="flex-1 flex flex-col justify-center">
+      <main
+        className={
+          activeTab === 'booster'
+            ? 'flex-1 min-h-0 w-full flex flex-col overflow-hidden'
+            : 'flex-1 flex flex-col justify-center'
+        }
+      >
         {activeTab === 'booster' ? (
           <BoosterOpeningStage
             allCards={allCards}
@@ -358,15 +370,17 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* ==================== FOOTER ==================== */}
-      <footer className="mt-8 text-center text-[11px] text-slate-500 px-4">
-        <p className="flex items-center justify-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400/70" />
-          <span>
-            milTCG — Toutes vos cartes restent stockées 100% en local dans votre navigateur.
-          </span>
-        </p>
-      </footer>
+      {/* ==================== FOOTER (Binder view only, so Booster stage stays 100% locked) ==================== */}
+      {activeTab === 'binder' && (
+        <footer className="mt-6 text-center text-[11px] text-slate-500 px-4">
+          <p className="flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400/70" />
+            <span>
+              milTCG — Toutes vos cartes restent stockées 100% en local dans votre navigateur.
+            </span>
+          </p>
+        </footer>
+      )}
 
       {/* ==================== MODALS ==================== */}
       {inspectedCard && (

@@ -11,7 +11,6 @@ import {
   Crown,
   Flame,
   Hand,
-  Eye,
   Download,
   Loader2,
 } from 'lucide-react';
@@ -84,6 +83,28 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const packRef = useRef<HTMLDivElement>(null);
+  const stageViewportRef = useRef<HTMLDivElement>(null);
+  const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({ w: 390, h: 560 });
+
+  // Measure available stage area in real time so every phase fits 100% on 1 screen without scroll on any phone
+  useEffect(() => {
+    const el = stageViewportRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      setViewportSize({
+        w: el.clientWidth || window.innerWidth,
+        h: el.clientHeight || window.innerHeight - 130,
+      });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(el);
+    window.addEventListener('resize', updateSize);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [phase, allCards.length]);
 
   // Only show an already-pulled custom photo on the pack cover so unpulled photos remain a 100% surprise!
   const coverPhotoUrl =
@@ -378,10 +399,30 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       : { x: 0, y: 0 };
 
   const tensionScale =
-    phase === 'bursting' ? 1.15 : 1 + (tearProgress / 100) * 0.09;
+    phase === 'bursting' ? 1.12 : 1 + (tearProgress / 100) * 0.07;
+
+  // Dynamic viewport-locked scale factors so Booster, Card Stack, and 5-Card Summary NEVER scroll on any phone
+  const boosterScale = Math.max(
+    0.52,
+    Math.min(1.05, (viewportSize.w - 16) / 324, (viewportSize.h - 12) / 490)
+  );
+  const stackScale = Math.max(
+    0.52,
+    Math.min(1.05, (viewportSize.w - 16) / 368, (viewportSize.h - 12) / 548)
+  );
+  const scale3x2 = Math.max(
+    0.3,
+    Math.min(0.95, (viewportSize.w - 12) / 924, (viewportSize.h - 12) / 912)
+  );
+  const scale5x1 = Math.max(
+    0.2,
+    Math.min(0.95, (viewportSize.w - 16) / 1548, (viewportSize.h - 12) / 470)
+  );
+  const useSingleRowSummary = scale5x1 > scale3x2;
+  const summaryScale = useSingleRowSummary ? scale5x1 : scale3x2;
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-4 flex flex-col items-center relative">
+    <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-2.5 sm:px-4 py-2 flex flex-col items-center justify-between overflow-hidden relative select-none">
       {/* Full-Screen Dramatic Light Flash on Pack Burst / Hit Flip */}
       {screenFlash && (
         <div
@@ -394,59 +435,61 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
 
       {/* ==================== EMPTY STATE: DIRECT PACK IMPORT OR GOOGLE PHOTOS ==================== */}
       {allCards.length === 0 && (
-        <div className="w-full max-w-xl my-8 rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-slate-900/95 border border-white/15 p-7 sm:p-10 text-center shadow-2xl flex flex-col items-center gap-5">
-          <img
-            src="./icon-512.png"
-            alt="milTCG"
-            className="w-28 h-28 rounded-3xl shadow-[0_0_40px_rgba(251,191,36,0.5)] object-cover"
-          />
+        <div className="flex-1 min-h-0 w-full flex items-center justify-center p-2">
+          <div className="w-full max-w-md rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-slate-900/95 border border-white/15 p-5 sm:p-8 text-center shadow-2xl flex flex-col items-center gap-4">
+            <img
+              src="./icon-512.png"
+              alt="milTCG"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl shadow-[0_0_40px_rgba(251,191,36,0.5)] object-cover"
+            />
 
-          <div className="space-y-2">
-            <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
-              Bienvenue sur mil<span className="text-amber-400">TCG</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
-              Importez un fichier de Pack (`.json`) directement ou tirez vos photos au hasard depuis
-              Google Photos pour commencer la collection.
-            </p>
-          </div>
+            <div className="space-y-1.5">
+              <h2 className="font-display font-black text-xl sm:text-2xl text-white">
+                Bienvenue sur mil<span className="text-amber-400">TCG</span>
+              </h2>
+              <p className="text-xs text-slate-300 max-w-sm mx-auto leading-relaxed">
+                Importez un fichier de Pack (`.json`) directement ou tirez vos photos au hasard depuis
+                Google Photos pour commencer la collection.
+              </p>
+            </div>
 
-          <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            <button
-              onClick={onTriggerImportPack}
-              disabled={isImportingPack}
-              className="w-full sm:w-auto flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-sm shadow-[0_0_30px_rgba(251,191,36,0.4)] hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2.5 disabled:opacity-50"
-            >
-              {isImportingPack ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>{importStatusText || 'Importation en cours...'}</span>
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  <span>📥 Importer un Pack (.json)</span>
-                </>
-              )}
-            </button>
+            <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
+              <button
+                onClick={onTriggerImportPack}
+                disabled={isImportingPack}
+                className="w-full sm:w-auto flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-xs sm:text-sm shadow-[0_0_30px_rgba(251,191,36,0.4)] hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isImportingPack ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{importStatusText || 'Importation en cours...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>📥 Importer un Pack (.json)</span>
+                  </>
+                )}
+              </button>
 
-            <button
-              onClick={onOpenPhotoManager}
-              disabled={isImportingPack}
-              className="w-full sm:w-auto py-4 px-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-white/15 text-white font-display font-bold text-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Images className="w-5 h-5 text-amber-400" />
-              <span>Google Photos</span>
-            </button>
+              <button
+                onClick={onOpenPhotoManager}
+                disabled={isImportingPack}
+                className="w-full sm:w-auto py-3.5 px-4 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-white/15 text-white font-display font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Images className="w-4 h-4 text-amber-400" />
+                <span>Google Photos</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING ==================== */}
+      {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING (100% 1-screen locked) ==================== */}
       {allCards.length > 0 && (phase === 'ready' || phase === 'bursting') && (
-        <div className="w-full flex flex-col items-center">
-          {/* Booster Edition Selector Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-5">
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between overflow-hidden">
+          {/* Top Bar: Booster Edition Selector Pills */}
+          <div className="shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 pt-0.5">
             {BOOSTER_SERIES.map((series) => {
               const active = series.id === selectedSeries.id;
               return (
@@ -457,9 +500,9 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                     tearProgressRef.current = 0;
                     setTearProgress(0);
                   }}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                  className={`px-2.5 sm:px-3.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 border ${
                     active
-                      ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_20px_rgba(251,191,36,0.25)] scale-105'
+                      ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_16px_rgba(251,191,36,0.25)] scale-105'
                       : 'bg-slate-900/70 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
                   }`}
                 >
@@ -470,457 +513,482 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             })}
           </div>
 
-          {/* Interactive Gesture Prompt */}
-          <div className="mb-5 flex items-center gap-2.5 px-5 py-2 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-200 text-xs font-bold shadow-[0_0_20px_rgba(251,191,36,0.15)]">
-            <Hand className="w-4 h-4 text-amber-400 animate-bounce" />
-            <span>
+          {/* Center Auto-Scaled 3D Booster Stage */}
+          <div
+            ref={stageViewportRef}
+            className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden"
+          >
+            <div
+              style={{
+                transform: `scale(${boosterScale})`,
+                transformOrigin: 'center center',
+              }}
+              className="relative w-[310px] h-[475px] flex items-center justify-center perspective-1500"
+            >
+              {/* Ambient Rarity Halo Behind Booster */}
+              <div
+                style={{
+                  opacity: phase === 'bursting' ? 1 : 0.15 + (tearProgress / 100) * 0.85,
+                  transform: `scale(${
+                    phase === 'bursting' ? 2.4 : 0.85 + (tearProgress / 100) * 0.75
+                  })`,
+                  background: `radial-gradient(circle, ${seamGlowHex} 0%, transparent 68%)`,
+                }}
+                className="absolute w-80 h-80 rounded-full pointer-events-none blur-2xl transition-all duration-200 z-0"
+              />
+
+              {/* Rising Card Stack Inside the Pack (visible as top tears and during burst!) */}
+              <div
+                style={{
+                  opacity: phase === 'bursting' ? 1 : Math.max(0, (tearProgress - 15) / 85),
+                  transform:
+                    phase === 'bursting'
+                      ? 'translateY(-35px) scale(0.95)'
+                      : `translateY(${40 - (tearProgress / 100) * 35}px) scale(0.84)`,
+                  transition: 'all 500ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+                className="absolute z-10 w-[260px] h-[380px] rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 p-1.5 shadow-[0_0_50px_rgba(251,191,36,0.8)] pointer-events-none"
+              >
+                <div className="w-full h-full rounded-xl bg-slate-950 flex items-center justify-center border border-amber-300/50">
+                  <Crown className="w-16 h-16 text-amber-300 animate-pulse" />
+                </div>
+              </div>
+
+              {/* THE FOIL BOOSTER PACK */}
+              <div
+                ref={packRef}
+                onPointerDown={handlePackPointerDown}
+                onPointerMove={handlePackPointerMove}
+                onPointerUp={handlePackPointerUpOrCancel}
+                onPointerCancel={handlePackPointerUpOrCancel}
+                onPointerLeave={() => {
+                  if (!isDraggingTearRef.current) {
+                    setPackTilt({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
+                  }
+                }}
+                style={{
+                  transform: `rotateX(${packTilt.rx}deg) rotateY(${packTilt.ry}deg) translate(${shakeOffset.x}px, ${shakeOffset.y}px) scale(${tensionScale})`,
+                  transition: isDraggingTear
+                    ? 'none'
+                    : 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}
+                className="relative z-20 w-[306px] h-[470px] select-none touch-none cursor-grab active:cursor-grabbing"
+              >
+                {/* ================= VOLUMETRIC GOD RAYS SHOOTING OUT OF THE TORN SEAM ================= */}
+                {tearProgress > 4 && (
+                  <div
+                    style={{
+                      width: `${tearProgress}%`,
+                      opacity: Math.min(1, tearProgress / 30),
+                    }}
+                    className="absolute top-[12px] left-0 h-[72px] z-20 pointer-events-none overflow-hidden"
+                  >
+                    <div
+                      style={{
+                        background: `conic-gradient(from 180deg at 50% 100%, transparent 0deg, ${seamGlowHex} 35deg, #ffffff 55deg, ${seamGlowHex} 75deg, transparent 110deg)`,
+                      }}
+                      className="w-full h-full blur-md opacity-90 animate-pulse"
+                    />
+                  </div>
+                )}
+
+                {/* ================= ALREADY-PEELED LEFT FOIL STRIP (Curls & lifts in 3D!) ================= */}
+                {tearProgress > 0 && (
+                  <div
+                    style={{
+                      clipPath: `polygon(0 0, ${tearProgress}% 0, ${tearProgress}% 100%, 0 100%)`,
+                      transformOrigin: `${Math.min(100, tearProgress + 5)}% 100%`,
+                      transform:
+                        phase === 'bursting'
+                          ? 'translate(160px, -220px) rotate(42deg) scale(0.8)'
+                          : `translateY(${-6 - tearProgress * 0.38}px) rotate(${
+                              -4 - tearProgress * 0.22
+                            }deg) skewX(${-tearProgress * 0.12}deg)`,
+                      opacity: phase === 'bursting' ? 0 : 1,
+                      transition: isDraggingTear ? 'none' : 'all 420ms ease-out',
+                    }}
+                    className="absolute top-0 inset-x-0 h-[80px] z-40 rounded-t-2xl overflow-hidden shadow-[0_18px_30px_rgba(0,0,0,0.65)] pointer-events-none"
+                  >
+                    <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#e2e8f0_0px,#e2e8f0_3px,#64748b_3px,#64748b_6px)] border-b border-white/50" />
+                    <div
+                      className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-200/60 via-white/25 to-transparent" />
+                      <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white drop-shadow">
+                        {selectedSeries.badgeText}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ================= UNCUT RIGHT FOIL STRIP (Stays attached until sliced!) ================= */}
+                {tearProgress < 100 && (
+                  <div
+                    style={{
+                      clipPath: `polygon(${tearProgress}% 0, 100% 0, 100% 100%, ${tearProgress}% 100%)`,
+                    }}
+                    className="absolute top-0 inset-x-0 h-[80px] z-30 rounded-t-2xl overflow-hidden pointer-events-none"
+                  >
+                    <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] border-b border-white/40" />
+                    <div
+                      className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
+                    >
+                      <div className="absolute inset-0 booster-metallic-sheen opacity-50" />
+                      <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white/90 drop-shadow">
+                        {selectedSeries.badgeText}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ================= MOLTEN ENERGY SEAM & TACTILE TEAR HANDLE ================= */}
+                <div className="absolute top-[58px] -inset-x-4 h-12 z-50 flex items-center pointer-events-none">
+                  <div className="w-full h-full flex items-center relative px-4">
+                    {/* Uncut perforated foil notch line */}
+                    <div className="w-full border-b-2 border-dashed border-amber-200/80 shadow-[0_0_12px_rgba(251,191,36,0.6)]" />
+
+                    {/* Glowing Sliced Energy Trail */}
+                    <div
+                      style={{
+                        width: `${tearProgress}%`,
+                        backgroundColor: '#ffffff',
+                        boxShadow: `0 0 12px #ffffff, 0 0 25px ${seamGlowHex}, 0 0 45px ${seamGlowHex}`,
+                      }}
+                      className="absolute left-4 h-2 rounded-full transition-none"
+                    />
+
+                    {/* Glowing Pull-Tab / Finger Target */}
+                    {phase === 'ready' && (
+                      <div
+                        style={{
+                          left: `calc(${Math.min(95, Math.max(8, tearProgress))}% )`,
+                          boxShadow: `0 0 25px ${seamGlowHex}, 0 0 45px rgba(251,191,36,0.95)`,
+                        }}
+                        className={`absolute -translate-x-1/2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 text-slate-950 font-display font-black text-[11px] flex items-center gap-1 border-2 border-white transition-transform ${
+                          isDraggingTear ? 'scale-125' : 'scale-100 animate-pulse'
+                        }`}
+                      >
+                        <span>{tearProgress === 0 ? 'GLISSER ➔' : `${tearProgress}%`}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ================= MAIN BOOSTER BODY (Slides down & opens on burst!) ================= */}
+                <div
+                  style={{
+                    transform:
+                      phase === 'bursting'
+                        ? 'translateY(180px) scale(0.92) rotateX(-18deg)'
+                        : 'translateY(0px)',
+                    opacity: phase === 'bursting' ? 0 : 1,
+                    transition: 'all 650ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                  className={`absolute top-[78px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_28px_65px_rgba(0,0,0,0.85)] flex flex-col items-center justify-between p-5 pointer-events-none`}
+                >
+                  {/* Foil Metallic Specular Reflection */}
+                  <div
+                    style={{
+                      backgroundPosition: `${packTilt.glareX * 2}% ${packTilt.glareY * 2}%`,
+                    }}
+                    className="absolute inset-0 booster-metallic-sheen pointer-events-none z-20 opacity-65"
+                  />
+
+                  <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
+
+                  {/* Top Series Emblem */}
+                  <div className="relative z-10 text-center mt-1">
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest mb-1">
+                      <Sparkles className="w-3 h-3" /> milTCG
+                    </div>
+                    <h2 className="font-display font-black text-2xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-none">
+                      {selectedSeries.name}
+                    </h2>
+                    <p className="text-[11px] text-white/85 font-semibold mt-1">
+                      {selectedSeries.subtitle}
+                    </p>
+                  </div>
+
+                  {/* Central Hero Medallion */}
+                  <div className="relative z-10 my-auto">
+                    <div className="w-40 h-40 rounded-full p-1.5 bg-gradient-to-tr from-amber-300 via-white to-pink-400 shadow-[0_0_35px_rgba(251,191,36,0.5)]">
+                      <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 relative border-2 border-slate-950 flex items-center justify-center">
+                        {coverPhotoUrl ? (
+                          <img
+                            src={coverPhotoUrl}
+                            alt={childName}
+                            className="w-full h-full object-cover"
+                            draggable={false}
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-amber-300">
+                            <Crown className="w-16 h-16 drop-shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-pulse" />
+                            <span className="font-display font-black text-xs tracking-widest mt-1 text-white">
+                              SURPRISE ?
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+                      </div>
+                    </div>
+                    <div className="-mt-3 mx-auto w-max px-3 py-0.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-amber-300 font-display font-black text-xs tracking-wider uppercase shadow-lg relative z-20">
+                      ★ 5 CARTES GARANTIES ★
+                    </div>
+                  </div>
+
+                  {/* Bottom Foil Crimp */}
+                  <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20">
+                    <span>ÉDITION FAMILLE</span>
+                    <span>1 HOLO+ GARANTIE</span>
+                  </div>
+                  <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85" />
+                </div>
+
+                {/* Dynamic Flying Foil Sparks Overlay */}
+                {sparks.map((s) => {
+                  const rad = (s.angle * Math.PI) / 180;
+                  const tx = Math.cos(rad) * s.distance;
+                  const ty = Math.sin(rad) * s.distance;
+                  return (
+                    <div
+                      key={s.id}
+                      style={{
+                        left: `${s.x}%`,
+                        top: `${s.y}%`,
+                        width: `${s.size}px`,
+                        height: `${s.size}px`,
+                        backgroundColor: s.color,
+                        boxShadow: `0 0 12px ${s.color}, 0 0 20px #ffffff`,
+                        transform: `translate(${tx}px, ${ty}px)`,
+                      }}
+                      className="pointer-events-none absolute rounded-full z-50 animate-ping"
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Interactive Gesture Prompt */}
+          <div className="shrink-0 pb-1 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-200 text-[11px] sm:text-xs font-bold shadow-[0_0_20px_rgba(251,191,36,0.15)]">
+            <Hand className="w-3.5 h-3.5 text-amber-400 animate-bounce shrink-0" />
+            <span className="truncate">
               {tearProgress === 0
-                ? 'Glissez votre doigt ou la souris de gauche à droite sur le booster pour le déchirer !'
+                ? 'Glissez de gauche à droite sur le booster pour le déchirer !'
                 : tearProgress < 82
                 ? `Continuez de glisser vers la droite ! (${tearProgress}%)`
                 : '✨ Explosion du booster !'}
             </span>
           </div>
-
-          {/* 3D Interactive Booster Pack Stage */}
-          <div className="relative flex items-center justify-center my-3 perspective-1500">
-            {/* Ambient Rarity Halo Behind Booster */}
-            <div
-              style={{
-                opacity: phase === 'bursting' ? 1 : 0.15 + (tearProgress / 100) * 0.85,
-                transform: `scale(${
-                  phase === 'bursting' ? 2.4 : 0.85 + (tearProgress / 100) * 0.75
-                })`,
-                background: `radial-gradient(circle, ${seamGlowHex} 0%, transparent 68%)`,
-              }}
-              className="absolute w-80 h-80 rounded-full pointer-events-none blur-2xl transition-all duration-200 z-0"
-            />
-
-            {/* Rising Card Stack Inside the Pack (visible as top tears and during burst!) */}
-            <div
-              style={{
-                opacity: phase === 'bursting' ? 1 : Math.max(0, (tearProgress - 15) / 85),
-                transform:
-                  phase === 'bursting'
-                    ? 'translateY(-35px) scale(0.95)'
-                    : `translateY(${40 - (tearProgress / 100) * 35}px) scale(0.84)`,
-                transition: 'all 500ms cubic-bezier(0.22, 1, 0.36, 1)',
-              }}
-              className="absolute z-10 w-[260px] h-[380px] rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 p-1.5 shadow-[0_0_50px_rgba(251,191,36,0.8)] pointer-events-none"
-            >
-              <div className="w-full h-full rounded-xl bg-slate-950 flex items-center justify-center border border-amber-300/50">
-                <Crown className="w-16 h-16 text-amber-300 animate-pulse" />
-              </div>
-            </div>
-
-            {/* THE FOIL BOOSTER PACK */}
-            <div
-              ref={packRef}
-              onPointerDown={handlePackPointerDown}
-              onPointerMove={handlePackPointerMove}
-              onPointerUp={handlePackPointerUpOrCancel}
-              onPointerCancel={handlePackPointerUpOrCancel}
-              onPointerLeave={() => {
-                if (!isDraggingTearRef.current) {
-                  setPackTilt({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
-                }
-              }}
-              style={{
-                transform: `rotateX(${packTilt.rx}deg) rotateY(${packTilt.ry}deg) translate(${shakeOffset.x}px, ${shakeOffset.y}px) scale(${tensionScale})`,
-                transition: isDraggingTear
-                  ? 'none'
-                  : 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1)',
-              }}
-              className="relative z-20 w-[300px] sm:w-[330px] h-[465px] sm:h-[505px] select-none touch-none cursor-grab active:cursor-grabbing"
-            >
-              {/* ================= VOLUMETRIC GOD RAYS SHOOTING OUT OF THE TORN SEAM ================= */}
-              {tearProgress > 4 && (
-                <div
-                  style={{
-                    width: `${tearProgress}%`,
-                    opacity: Math.min(1, tearProgress / 30),
-                  }}
-                  className="absolute top-[12px] left-0 h-[72px] z-20 pointer-events-none overflow-hidden"
-                >
-                  <div
-                    style={{
-                      background: `conic-gradient(from 180deg at 50% 100%, transparent 0deg, ${seamGlowHex} 35deg, #ffffff 55deg, ${seamGlowHex} 75deg, transparent 110deg)`,
-                    }}
-                    className="w-full h-full blur-md opacity-90 animate-pulse"
-                  />
-                </div>
-              )}
-
-              {/* ================= ALREADY-PEELED LEFT FOIL STRIP (Curls & lifts in 3D!) ================= */}
-              {tearProgress > 0 && (
-                <div
-                  style={{
-                    clipPath: `polygon(0 0, ${tearProgress}% 0, ${tearProgress}% 100%, 0 100%)`,
-                    transformOrigin: `${Math.min(100, tearProgress + 5)}% 100%`,
-                    transform:
-                      phase === 'bursting'
-                        ? 'translate(160px, -220px) rotate(42deg) scale(0.8)'
-                        : `translateY(${-6 - tearProgress * 0.38}px) rotate(${
-                            -4 - tearProgress * 0.22
-                          }deg) skewX(${-tearProgress * 0.12}deg)`,
-                    opacity: phase === 'bursting' ? 0 : 1,
-                    transition: isDraggingTear ? 'none' : 'all 420ms ease-out',
-                  }}
-                  className="absolute top-0 inset-x-0 h-[82px] z-40 rounded-t-2xl overflow-hidden shadow-[0_18px_30px_rgba(0,0,0,0.65)] pointer-events-none"
-                >
-                  <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#e2e8f0_0px,#e2e8f0_3px,#64748b_3px,#64748b_6px)] border-b border-white/50" />
-                  <div
-                    className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-200/60 via-white/25 to-transparent" />
-                    <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white drop-shadow">
-                      {selectedSeries.badgeText}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* ================= UNCUT RIGHT FOIL STRIP (Stays attached until sliced!) ================= */}
-              {tearProgress < 100 && (
-                <div
-                  style={{
-                    clipPath: `polygon(${tearProgress}% 0, 100% 0, 100% 100%, ${tearProgress}% 100%)`,
-                  }}
-                  className="absolute top-0 inset-x-0 h-[82px] z-30 rounded-t-2xl overflow-hidden pointer-events-none"
-                >
-                  <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] border-b border-white/40" />
-                  <div
-                    className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
-                  >
-                    <div className="absolute inset-0 booster-metallic-sheen opacity-50" />
-                    <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white/90 drop-shadow">
-                      {selectedSeries.badgeText}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* ================= MOLTEN ENERGY SEAM & TACTILE TEAR HANDLE ================= */}
-              <div className="absolute top-[60px] -inset-x-4 h-12 z-50 flex items-center pointer-events-none">
-                <div className="w-full h-full flex items-center relative px-4">
-                  {/* Uncut perforated foil notch line */}
-                  <div className="w-full border-b-2 border-dashed border-amber-200/80 shadow-[0_0_12px_rgba(251,191,36,0.6)]" />
-
-                  {/* Glowing Sliced Energy Trail */}
-                  <div
-                    style={{
-                      width: `${tearProgress}%`,
-                      backgroundColor: '#ffffff',
-                      boxShadow: `0 0 12px #ffffff, 0 0 25px ${seamGlowHex}, 0 0 45px ${seamGlowHex}`,
-                    }}
-                    className="absolute left-4 h-2 rounded-full transition-none"
-                  />
-
-                  {/* Glowing Pull-Tab / Finger Target */}
-                  {phase === 'ready' && (
-                    <div
-                      style={{
-                        left: `calc(${Math.min(95, Math.max(8, tearProgress))}% )`,
-                        boxShadow: `0 0 25px ${seamGlowHex}, 0 0 45px rgba(251,191,36,0.95)`,
-                      }}
-                      className={`absolute -translate-x-1/2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 text-slate-950 font-display font-black text-[11px] flex items-center gap-1 border-2 border-white transition-transform ${
-                        isDraggingTear ? 'scale-125' : 'scale-100 animate-pulse'
-                      }`}
-                    >
-                      <span>{tearProgress === 0 ? 'GLISSER ➔' : `${tearProgress}%`}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ================= MAIN BOOSTER BODY (Slides down & opens on burst!) ================= */}
-              <div
-                style={{
-                  transform:
-                    phase === 'bursting'
-                      ? 'translateY(180px) scale(0.92) rotateX(-18deg)'
-                      : 'translateY(0px)',
-                  opacity: phase === 'bursting' ? 0 : 1,
-                  transition: 'all 650ms cubic-bezier(0.22, 1, 0.36, 1)',
-                }}
-                className={`absolute top-[80px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_28px_65px_rgba(0,0,0,0.85)] flex flex-col items-center justify-between p-5 pointer-events-none`}
-              >
-                {/* Foil Metallic Specular Reflection */}
-                <div
-                  style={{
-                    backgroundPosition: `${packTilt.glareX * 2}% ${packTilt.glareY * 2}%`,
-                  }}
-                  className="absolute inset-0 booster-metallic-sheen pointer-events-none z-20 opacity-65"
-                />
-
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
-
-                {/* Top Series Emblem */}
-                <div className="relative z-10 text-center mt-1">
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest mb-1">
-                    <Sparkles className="w-3 h-3" /> milTCG
-                  </div>
-                  <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-none">
-                    {selectedSeries.name}
-                  </h2>
-                  <p className="text-[11px] text-white/85 font-semibold mt-1">
-                    {selectedSeries.subtitle}
-                  </p>
-                </div>
-
-                {/* Central Hero Medallion */}
-                <div className="relative z-10 my-auto">
-                  <div className="w-40 h-40 sm:w-44 sm:h-44 rounded-full p-1.5 bg-gradient-to-tr from-amber-300 via-white to-pink-400 shadow-[0_0_35px_rgba(251,191,36,0.5)]">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 relative border-2 border-slate-950 flex items-center justify-center">
-                      {coverPhotoUrl ? (
-                        <img
-                          src={coverPhotoUrl}
-                          alt={childName}
-                          className="w-full h-full object-cover"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-amber-300">
-                          <Crown className="w-16 h-16 drop-shadow-[0_0_15px_rgba(251,191,36,0.9)] animate-pulse" />
-                          <span className="font-display font-black text-xs tracking-widest mt-1 text-white">
-                            SURPRISE ?
-                          </span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
-                    </div>
-                  </div>
-                  <div className="-mt-3 mx-auto w-max px-3 py-0.5 rounded-full bg-slate-950/90 border border-amber-400/60 text-amber-300 font-display font-black text-xs tracking-wider uppercase shadow-lg relative z-20">
-                    ★ 5 CARTES GARANTIES ★
-                  </div>
-                </div>
-
-                {/* Bottom Foil Crimp */}
-                <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20">
-                  <span>ÉDITION FAMILLE</span>
-                  <span>1 HOLO+ GARANTIE</span>
-                </div>
-                <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85" />
-              </div>
-
-              {/* Dynamic Flying Foil Sparks Overlay */}
-              {sparks.map((s) => {
-                const rad = (s.angle * Math.PI) / 180;
-                const tx = Math.cos(rad) * s.distance;
-                const ty = Math.sin(rad) * s.distance;
-                return (
-                  <div
-                    key={s.id}
-                    style={{
-                      left: `${s.x}%`,
-                      top: `${s.y}%`,
-                      width: `${s.size}px`,
-                      height: `${s.size}px`,
-                      backgroundColor: s.color,
-                      boxShadow: `0 0 12px ${s.color}, 0 0 20px #ffffff`,
-                      transform: `translate(${tx}px, ${ty}px)`,
-                    }}
-                    className="pointer-events-none absolute rounded-full z-50 animate-ping"
-                  />
-                );
-              })}
-            </div>
-          </div>
         </div>
       )}
 
-      {/* ==================== PHASE 3: TACTILE CARD-BY-CARD STACK REVEAL ==================== */}
+      {/* ==================== PHASE 3: TACTILE CARD-BY-CARD STACK REVEAL (100% 1-screen locked) ==================== */}
       {phase === 'stack' && currentPulled && (
-        <div className="w-full flex flex-col items-center py-2 animate-fadeIn">
-          {/* Top Progress Indicator */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between overflow-hidden animate-fadeIn">
+          {/* Top Progress & Rarity Bar */}
+          <div className="shrink-0 flex flex-wrap items-center justify-center gap-2 pt-0.5">
             {isGodPack && (
-              <div className="px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-xs tracking-wider uppercase shadow-[0_0_20px_rgba(251,191,36,0.8)] animate-bounce flex items-center gap-1">
-                <Crown className="w-4 h-4" /> GOD PACK LÉGENDAIRE !
+              <div className="px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-[11px] tracking-wider uppercase shadow-[0_0_16px_rgba(251,191,36,0.8)] animate-bounce flex items-center gap-1">
+                <Crown className="w-3.5 h-3.5" /> GOD PACK !
               </div>
             )}
-            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-white/15 px-4 py-1.5 rounded-full">
+            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-white/15 px-3 py-1 rounded-full">
               {pulledCards.map((_, idx) => {
                 const isCurrent = idx === currentCardIndex;
                 const isPast = idx < currentCardIndex;
                 return (
                   <div
                     key={idx}
-                    className={`h-2.5 rounded-full transition-all ${
+                    className={`h-2 rounded-full transition-all ${
                       isCurrent
-                        ? 'w-7 bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)]'
+                        ? 'w-6 bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)]'
                         : isPast
-                        ? 'w-2.5 bg-emerald-400'
-                        : 'w-2.5 bg-slate-700'
+                        ? 'w-2 bg-emerald-400'
+                        : 'w-2 bg-slate-700'
                     }`}
                   />
                 );
               })}
-              <span className="ml-2 text-xs font-bold text-slate-300">
-                Carte {currentCardIndex + 1} sur {pulledCards.length}
+              <span className="ml-1.5 text-[11px] font-bold text-slate-300">
+                {currentCardIndex + 1}/{pulledCards.length}
               </span>
             </div>
+
+            {!isCurrentCardFaceDown && (
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                  RARITY_CONFIG[currentPulled.card.rarity].colorClass
+                }`}
+              >
+                {RARITY_CONFIG[currentPulled.card.rarity].stars}{' '}
+                {RARITY_CONFIG[currentPulled.card.rarity].label}
+              </span>
+            )}
           </div>
 
-          {/* 3D CARD STACK STAGE */}
-          <div className="relative w-[360px] sm:w-[400px] h-[545px] sm:h-[580px] flex items-center justify-center my-1">
-            {/* Ambient Rarity Backlight Aura */}
+          {/* Center Auto-Scaled 3D Card Stack Stage */}
+          <div
+            ref={stageViewportRef}
+            className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden"
+          >
             <div
               style={{
-                backgroundColor: RARITY_CONFIG[currentPulled.card.rarity].glowHex,
+                transform: `scale(${stackScale})`,
+                transformOrigin: 'center center',
               }}
-              className={`absolute w-80 h-96 rounded-full blur-3xl pointer-events-none transition-all duration-500 ${
-                isBigHitRarity(currentPulled.card.rarity)
-                  ? 'opacity-65 scale-115 animate-pulse'
-                  : 'opacity-25 scale-95'
-              }`}
-            />
-
-            {/* Remaining Stack Depth Cards Underneath (Peek at next card as you drag!) */}
-            {nextPulled && (
+              className="relative w-[360px] h-[535px] flex items-center justify-center"
+            >
+              {/* Ambient Rarity Backlight Aura */}
               <div
                 style={{
-                  transform: `scale(${
-                    0.95 + Math.min(0.05, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 1800)
-                  }) translateY(${
-                    12 - Math.min(12, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 15)
-                  }px)`,
-                  boxShadow: isBigHitRarity(nextPulled.card.rarity)
-                    ? `0 0 40px ${RARITY_CONFIG[nextPulled.card.rarity].glowHex}`
-                    : undefined,
+                  backgroundColor: RARITY_CONFIG[currentPulled.card.rarity].glowHex,
                 }}
-                className="absolute z-10 pointer-events-none opacity-90 transition-transform duration-150 rounded-[18px]"
-              >
-                <HoloCard
-                  card={nextPulled.card}
-                  size="lg"
-                  interactive={false}
-                  flipped={isBigHitRarity(nextPulled.card.rarity)}
-                />
-              </div>
-            )}
+                className={`absolute w-80 h-96 rounded-full blur-3xl pointer-events-none transition-all duration-500 ${
+                  isBigHitRarity(currentPulled.card.rarity)
+                    ? 'opacity-65 scale-115 animate-pulse'
+                    : 'opacity-25 scale-95'
+                }`}
+              />
 
-            {/* Current Active Top Card (Swipeable & 3D Flippable!) */}
-            <div
-              key={`stack-card-${currentCardIndex}`}
-              onPointerDown={handleCardStackPointerDown}
-              onPointerMove={handleCardStackPointerMove}
-              onPointerUp={handleCardStackPointerUpOrCancel}
-              onPointerCancel={handleCardStackPointerUpOrCancel}
-              style={{
-                transform: isAnimatingOut
-                  ? `translate(${exitDirection.x}px, ${exitDirection.y}px) rotate(${
-                      exitDirection.x > 0 ? 22 : -22
-                    }deg) scale(0.88)`
-                  : `translate(${cardSwipeOffset.x}px, ${cardSwipeOffset.y}px) rotate(${
-                      cardSwipeOffset.x * 0.045
-                    }deg)`,
-                opacity: isAnimatingOut ? 0 : 1,
-                transition: isSwipingCard
-                  ? 'none'
-                  : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 230ms ease',
-              }}
-              className="relative z-20 touch-none cursor-grab active:cursor-grabbing select-none"
-            >
-              {/* Mystery Hit Floating Prompt when card is face-down */}
-              {isCurrentCardFaceDown && (
-                <div className="absolute -top-4 inset-x-0 z-40 flex justify-center pointer-events-none">
-                  <div className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-pink-400 to-amber-300 text-slate-950 font-display font-black text-xs tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,1)] animate-bounce border-2 border-white">
-                    ✨ CARTE RARE DÉTECTÉE — TOUCHEZ POUR RETOURNER ! ✨
-                  </div>
+              {/* Remaining Stack Depth Cards Underneath (Peek at next card as you drag!) */}
+              {nextPulled && (
+                <div
+                  style={{
+                    transform: `scale(${
+                      0.95 + Math.min(0.05, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 1800)
+                    }) translateY(${
+                      10 - Math.min(10, Math.hypot(cardSwipeOffset.x, cardSwipeOffset.y) / 15)
+                    }px)`,
+                    boxShadow: isBigHitRarity(nextPulled.card.rarity)
+                      ? `0 0 40px ${RARITY_CONFIG[nextPulled.card.rarity].glowHex}`
+                      : undefined,
+                  }}
+                  className="absolute z-10 pointer-events-none opacity-90 transition-transform duration-150 rounded-[18px]"
+                >
+                  <HoloCard
+                    card={nextPulled.card}
+                    size="lg"
+                    interactive={false}
+                    flipped={isBigHitRarity(nextPulled.card.rarity)}
+                  />
                 </div>
               )}
 
-              <HoloCard
-                card={currentPulled.card}
-                size="lg"
-                interactive={!isSwipingCard}
-                flipped={isCurrentCardFaceDown}
-                isNew={currentPulled.isNew && !isCurrentCardFaceDown}
-              />
+              {/* Current Active Top Card (Swipeable & 3D Flippable!) */}
+              <div
+                key={`stack-card-${currentCardIndex}`}
+                onPointerDown={handleCardStackPointerDown}
+                onPointerMove={handleCardStackPointerMove}
+                onPointerUp={handleCardStackPointerUpOrCancel}
+                onPointerCancel={handleCardStackPointerUpOrCancel}
+                style={{
+                  transform: isAnimatingOut
+                    ? `translate(${exitDirection.x}px, ${exitDirection.y}px) rotate(${
+                        exitDirection.x > 0 ? 22 : -22
+                      }deg) scale(0.88)`
+                    : `translate(${cardSwipeOffset.x}px, ${cardSwipeOffset.y}px) rotate(${
+                        cardSwipeOffset.x * 0.045
+                      }deg)`,
+                  opacity: isAnimatingOut ? 0 : 1,
+                  transition: isSwipingCard
+                    ? 'none'
+                    : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 230ms ease',
+                }}
+                className="relative z-20 touch-none cursor-grab active:cursor-grabbing select-none"
+              >
+                {/* Mystery Hit Floating Prompt when card is face-down */}
+                {isCurrentCardFaceDown && (
+                  <div className="absolute -top-3.5 inset-x-0 z-40 flex justify-center pointer-events-none">
+                    <div className="px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-300 via-pink-400 to-amber-300 text-slate-950 font-display font-black text-[11px] tracking-wider uppercase shadow-[0_0_25px_rgba(251,191,36,1)] animate-bounce border-2 border-white">
+                      ✨ CARTE RARE — TOUCHEZ POUR RETOURNER ! ✨
+                    </div>
+                  </div>
+                )}
+
+                <HoloCard
+                  card={currentPulled.card}
+                  size="lg"
+                  interactive={!isSwipingCard}
+                  flipped={isCurrentCardFaceDown}
+                  isNew={currentPulled.isNew && !isCurrentCardFaceDown}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Rarity Badge & Gesture Instruction */}
-          <div className="mt-4 flex flex-col items-center gap-2.5">
-            {!isCurrentCardFaceDown && (
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-3.5 py-1 rounded-full text-xs font-extrabold border ${
-                    RARITY_CONFIG[currentPulled.card.rarity].colorClass
-                  }`}
-                >
-                  {RARITY_CONFIG[currentPulled.card.rarity].stars}{' '}
-                  {RARITY_CONFIG[currentPulled.card.rarity].label}
-                </span>
-                {currentPulled.isNew && (
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-bold">
-                    Ajoutée au Classeur !
-                  </span>
-                )}
-              </div>
-            )}
-
-            <div className="px-5 py-2 rounded-full bg-slate-900/85 border border-white/15 text-xs font-bold text-amber-200 flex items-center gap-2 shadow-lg">
-              <Hand className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span>
-                {isCurrentCardFaceDown
-                  ? 'Touchez la carte dorée pour la retourner en 3D !'
-                  : currentCardIndex + 1 < pulledCards.length
-                  ? 'Glissez la carte sur le côté (ou touchez-la) pour découvrir la suivante !'
-                  : 'Glissez ou touchez cette dernière carte pour voir le résumé du tirage !'}
-              </span>
-            </div>
+          {/* Bottom Gesture Instruction */}
+          <div className="shrink-0 pb-1 px-4 py-1.5 rounded-full bg-slate-900/85 border border-white/15 text-[11px] sm:text-xs font-bold text-amber-200 flex items-center gap-2 shadow-lg">
+            <Hand className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+            <span className="truncate">
+              {isCurrentCardFaceDown
+                ? 'Touchez la carte dorée pour la retourner en 3D !'
+                : currentCardIndex + 1 < pulledCards.length
+                ? 'Glissez ou touchez la carte pour découvrir la suivante !'
+                : 'Glissez ou touchez pour voir le résumé des 5 cartes !'}
+            </span>
           </div>
         </div>
       )}
 
-      {/* ==================== PHASE 4: PACK SUMMARY ("RÉSUMÉ DU TIRAGE") ==================== */}
+      {/* ==================== PHASE 4: PACK SUMMARY (100% 1-screen locked) ==================== */}
       {phase === 'summary' && (
-        <div className="w-full flex flex-col items-center py-2 animate-fadeIn">
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-extrabold mb-2">
-              <Flame className="w-4 h-4" /> TIRAGE TERMINÉ !
+        <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between overflow-hidden animate-fadeIn">
+          {/* Compact Header */}
+          <div className="shrink-0 text-center pt-0.5">
+            <div className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-300 text-[10px] font-extrabold">
+                <Flame className="w-3 h-3" /> TIRAGE TERMINÉ
+              </span>
+              <h2 className="font-display font-black text-base sm:text-xl text-white">
+                Vos 5 Cartes Obtenues
+              </h2>
             </div>
-            <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
-              Vos 5 Cartes Obtenues
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              Cliquez sur n’importe quelle carte pour l’inspecter en 3D ou personnaliser ses attaques
+            <p className="text-[10px] sm:text-xs text-slate-400">
+              Touchez une carte pour l’inspecter en 3D plein écran
             </p>
           </div>
 
-          {/* 5-Card Showcase Grid */}
-          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 my-2">
-            {pulledCards.map((item, idx) => (
-              <div
-                key={`${item.card.id}-${idx}`}
-                className="flex flex-col items-center gap-2 group"
-              >
-                <HoloCard
-                  card={item.card}
-                  size="md"
-                  interactive={true}
-                  isNew={item.isNew}
-                  onClick={() => onInspectCard(item.card)}
-                />
-                <button
-                  onClick={() => onInspectCard(item.card)}
-                  className="px-3 py-1 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-[11px] font-semibold text-slate-300 group-hover:text-amber-300 transition flex items-center gap-1"
+          {/* Auto-Scaled 5-Card Showcase Stage (3+2 on portrait phones, 5-in-a-row on wide screens) */}
+          <div
+            ref={stageViewportRef}
+            className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden"
+          >
+            <div
+              style={{
+                transform: `scale(${summaryScale})`,
+                transformOrigin: 'center center',
+              }}
+              className={
+                useSingleRowSummary
+                  ? 'w-[1544px] h-[460px] flex items-center justify-center gap-4'
+                  : 'w-[920px] h-[906px] flex flex-wrap items-center justify-center gap-4 content-center'
+              }
+            >
+              {pulledCards.map((item, idx) => (
+                <div
+                  key={`${item.card.id}-${idx}`}
+                  className="flex flex-col items-center group"
                 >
-                  <Eye className="w-3 h-3" /> Inspecter / Éditer
-                </button>
-              </div>
-            ))}
+                  <HoloCard
+                    card={item.card}
+                    size="md"
+                    interactive={true}
+                    isNew={item.isNew}
+                    onClick={() => onInspectCard(item.card)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+          {/* Bottom Action Button */}
+          <div className="shrink-0 pb-1 flex items-center justify-center">
             <button
               onClick={resetForNextBooster}
-              className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-base shadow-[0_0_30px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
+              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-xs sm:text-sm shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4" />
               Choisir un Nouveau Booster !
             </button>
           </div>

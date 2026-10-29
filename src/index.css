@@ -8,11 +8,13 @@
     --pointer-y: 50%;
   }
 
+  html,
   body {
     user-select: none;
     -webkit-user-select: none;
+    overscroll-behavior-y: none;
     background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 60%, #020617 100%);
-    min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 
