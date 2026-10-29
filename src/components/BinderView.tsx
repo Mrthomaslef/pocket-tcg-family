@@ -2,7 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { CardRarity, CollectionMap, ElementType, TCGCard } from '../types/tcg';
 import { ELEMENT_CONFIG, RARITY_CONFIG } from '../utils/cardGenerator';
 import { HoloCard } from './HoloCard';
-import { BookOpen, Search, Sparkles, Lock, Filter, Trophy } from 'lucide-react';
+import {
+  BookOpen,
+  Search,
+  Sparkles,
+  Lock,
+  Filter,
+  Trophy,
+  LayoutGrid,
+  Maximize2,
+} from 'lucide-react';
 
 interface BinderViewProps {
   allCards: TCGCard[];
@@ -23,6 +32,8 @@ export const BinderView: React.FC<BinderViewProps> = ({
   const [elementFilter, setElementFilter] = useState<ElementType | 'all'>('all');
   const [onlyOwned, setOnlyOwned] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  // Toggle between 'compact4' (4 cards per row) and 'large' (3 large cards per row)
+  const [gridMode, setGridMode] = useState<'compact4' | 'large'>('compact4');
 
   const ownedUniqueCount = useMemo(
     () => allCards.filter((c) => (collection[c.id]?.count || 0) > 0).length,
@@ -54,8 +65,10 @@ export const BinderView: React.FC<BinderViewProps> = ({
     });
   }, [allCards, collection, onlyOwned, rarityFilter, elementFilter, searchQuery]);
 
+  const isCompact = gridMode === 'compact4';
+
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-4">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 py-4">
       {/* Collector Album Header Banner */}
       <div className="rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-slate-900/95 border border-white/15 p-5 sm:p-6 shadow-2xl mb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -64,7 +77,7 @@ export const BinderView: React.FC<BinderViewProps> = ({
               <BookOpen className="w-7 h-7" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="font-display font-black text-xl sm:text-2xl text-white">
                   Classeur Collector — {childName}
                 </h2>
@@ -79,21 +92,50 @@ export const BinderView: React.FC<BinderViewProps> = ({
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full md:w-64 flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-              <span className="flex items-center gap-1 text-amber-300">
-                <Trophy className="w-3.5 h-3.5" /> Progression du Set
-              </span>
-              <span>
-                {ownedUniqueCount}/{allCards.length}
-              </span>
+          {/* Right: View Mode Toggle (4 par ligne vs Grandes cartes) + Progress Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {/* Grid Density Toggle Button */}
+            <div className="flex items-center p-1 rounded-2xl bg-slate-950 border border-white/15 self-start sm:self-auto">
+              <button
+                onClick={() => setGridMode('compact4')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  isCompact
+                    ? 'bg-amber-400 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>4 par ligne</span>
+              </button>
+              <button
+                onClick={() => setGridMode('large')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                  !isCompact
+                    ? 'bg-amber-400 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Grandes</span>
+              </button>
             </div>
-            <div className="w-full h-3 rounded-full bg-slate-950 border border-white/10 overflow-hidden p-0.5">
-              <div
-                style={{ width: `${completionPct}%` }}
-                className="h-full rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-indigo-400 transition-all duration-500"
-              />
+
+            {/* Progress Bar */}
+            <div className="w-full sm:w-52 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                <span className="flex items-center gap-1 text-amber-300">
+                  <Trophy className="w-3.5 h-3.5" /> Progression
+                </span>
+                <span>
+                  {ownedUniqueCount}/{allCards.length}
+                </span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-slate-950 border border-white/10 overflow-hidden p-0.5">
+                <div
+                  style={{ width: `${completionPct}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 via-pink-500 to-indigo-400 transition-all duration-500"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -169,7 +211,7 @@ export const BinderView: React.FC<BinderViewProps> = ({
       </div>
 
       {/* BINDER POCKET GRID */}
-      <div className="rounded-3xl bg-slate-950/85 border-2 border-slate-800/90 p-5 sm:p-8 shadow-[inset_0_0_50px_rgba(0,0,0,0.85)]">
+      <div className="rounded-3xl bg-slate-950/85 border-2 border-slate-800/90 p-3 sm:p-6 shadow-[inset_0_0_50px_rgba(0,0,0,0.85)]">
         {filteredCards.length === 0 ? (
           <div className="py-16 text-center flex flex-col items-center gap-3">
             <Sparkles className="w-10 h-10 text-amber-400/60" />
@@ -189,7 +231,13 @@ export const BinderView: React.FC<BinderViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7 justify-items-center">
+          <div
+            className={
+              isCompact
+                ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-5 justify-items-center'
+                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7 justify-items-center'
+            }
+          >
             {filteredCards.map((card) => {
               const entry = collection[card.id];
               const count = entry?.count || 0;
@@ -198,21 +246,23 @@ export const BinderView: React.FC<BinderViewProps> = ({
               return (
                 <div
                   key={card.id}
-                  className="relative p-3 rounded-2xl bg-slate-900/50 border border-white/10 shadow-inner flex flex-col items-center justify-center group"
+                  className={`relative rounded-2xl bg-slate-900/50 border border-white/10 shadow-inner flex flex-col items-center justify-center group ${
+                    isCompact ? 'p-2 sm:p-3 w-full max-w-[235px]' : 'p-3'
+                  }`}
                 >
                   {/* Top stitch line like a real binder sleeve */}
-                  <div className="w-full border-t border-dashed border-white/15 mb-2.5" />
+                  <div className="w-full border-t border-dashed border-white/15 mb-2" />
 
                   {isOwned ? (
                     <div className="flex flex-col items-center">
                       <HoloCard
                         card={card}
-                        size="md"
+                        size={isCompact ? 'sm' : 'md'}
                         interactive={true}
                         countBadge={count}
                         onClick={() => onInspectCard(card)}
                       />
-                      <div className="mt-2.5 flex items-center justify-between w-full px-1 text-[11px] text-slate-400">
+                      <div className="mt-2 flex items-center justify-between w-full px-1 text-[10px] sm:text-[11px] text-slate-400">
                         <span className="font-bold text-slate-300">
                           #{String(card.setNumber).padStart(3, '0')}
                         </span>
@@ -220,38 +270,50 @@ export const BinderView: React.FC<BinderViewProps> = ({
                           onClick={() => onInspectCard(card)}
                           className="text-amber-300 hover:underline font-semibold"
                         >
-                          Inspecter en 3D →
+                          Inspecter →
                         </button>
                       </div>
                     </div>
                   ) : (
                     /* Unowned Mystery Pocket Slot */
-                    <div className="w-[296px] h-[445px] rounded-[18px] bg-slate-950/90 border-2 border-dashed border-slate-700/70 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+                    <div
+                      className={`${
+                        isCompact
+                          ? 'w-[195px] h-[285px] p-3'
+                          : 'w-[296px] h-[445px] p-6'
+                      } rounded-[18px] bg-slate-950/90 border-2 border-dashed border-slate-700/70 flex flex-col items-center justify-center text-center relative overflow-hidden`}
+                    >
                       {/* Blurred preview silhouette of the card */}
                       <img
                         src={card.imageUrl}
                         alt="Carte mystère"
                         className="absolute inset-0 w-full h-full object-cover opacity-15 blur-md grayscale pointer-events-none"
                       />
-                      <div className="relative z-10 w-14 h-14 rounded-2xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-slate-500 mb-3">
-                        <Lock className="w-6 h-6" />
+                      <div
+                        className={`relative z-10 rounded-2xl bg-slate-900/90 border border-white/10 flex items-center justify-center text-slate-500 mb-2 ${
+                          isCompact ? 'w-10 h-10' : 'w-14 h-14 mb-3'
+                        }`}
+                      >
+                        <Lock className={isCompact ? 'w-4 h-4' : 'w-6 h-6'} />
                       </div>
-                      <span className="relative z-10 text-xs font-black text-slate-400 tracking-widest">
+                      <span className="relative z-10 text-[10px] sm:text-xs font-black text-slate-400 tracking-widest">
                         CARTE #{String(card.setNumber).padStart(3, '0')}
                       </span>
                       <span
-                        className={`relative z-10 mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        className={`relative z-10 mt-1.5 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border ${
                           RARITY_CONFIG[card.rarity].colorClass
                         }`}
                       >
                         {RARITY_CONFIG[card.rarity].stars} {RARITY_CONFIG[card.rarity].label}
                       </span>
-                      <p className="relative z-10 text-[11px] text-slate-400 mt-4">
-                        Ouvrez des boosters pour débloquer ce souvenir dans votre classeur !
-                      </p>
+                      {!isCompact && (
+                        <p className="relative z-10 text-[11px] text-slate-400 mt-4">
+                          Ouvrez des boosters pour débloquer ce souvenir dans votre classeur !
+                        </p>
+                      )}
                       <button
                         onClick={onSwitchToBooster}
-                        className="relative z-10 mt-4 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-amber-400 hover:text-slate-950 text-xs font-bold text-slate-200 transition"
+                        className="relative z-10 mt-3 px-3 py-1 rounded-xl bg-white/10 hover:bg-amber-400 hover:text-slate-950 text-[10px] sm:text-xs font-bold text-slate-200 transition"
                       >
                         Ouvrir un Booster
                       </button>
