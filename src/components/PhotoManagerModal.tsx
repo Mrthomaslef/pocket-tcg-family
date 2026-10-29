@@ -1,0 +1,552 @@
+import React, { useState, useRef } from 'react';
+import { AppSettings, TCGCard } from '../types/tcg';
+import { launchGooglePhotosPickerFlow } from '../services/googlePhotosPicker';
+import { blobToCompressedDataUrl } from '../utils/db';
+import { createCardFromPhoto } from '../utils/cardGenerator';
+import {
+  X,
+  Images,
+  Upload,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  HelpCircle,
+  Trash2,
+  Loader2,
+  User,
+  Dices,
+} from 'lucide-react';
+
+interface PhotoManagerModalProps {
+  settings: AppSettings;
+  customCards: TCGCard[];
+  onUpdateSettings: (partial: Partial<AppSettings>) => void;
+  onAddCustomCards: (newCards: TCGCard[]) => Promise<void>;
+  onClearCustomCards: () => Promise<void>;
+  onClose: () => void;
+}
+
+export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
+  settings,
+  customCards,
+  onUpdateSettings,
+  onAddCustomCards,
+  onClearCustomCards,
+  onClose,
+}) => {
+  const [activeTab, setActiveTab] = useState<'picker' | 'direct'>('picker');
+  const [childNameInput, setChildNameInput] = useState(settings.childName);
+  const [clientIdInput, setClientIdInput] = useState(
+    settings.googleClientId ||
+      '817822977351-5m288vfdn4arbv5o35rd8skt2le8ektu.apps.googleusercontent.com'
+  );
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [copiedOrigin, setCopiedOrigin] = useState(false);
+
+  // Random sample size when user Shift+Clicks a huge range of photos (0 = keep all)
+  const [randomSampleCount, setRandomSampleCount] = useState<number>(25);
+
+  // Picker / Import status
+  const [isBusy, setIsBusy] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [activePickerUri, setActivePickerUri] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleSaveChildName = () => {
+    const trimmed = childNameInput.trim() || 'Mon Fils';
+    onUpdateSettings({ childName: trimmed });
+  };
+
+  // Launch Official Google Photos Picker API with Random Sampling
+  const handleLaunchGooglePicker = async () => {
+    setErrorMessage(null);
+    setStatusMessage(null);
+
+    const trimmedClientId = clientIdInput.trim();
+    if (!trimmedClientId) {
+      setErrorMessage(
+        'Veuillez renseigner votre Client ID Google OAuth (ou utilisez l’onglet "Import Direct Sans Config" juste à côté !).'
+      );
+      setShowSetupGuide(true);
+      return;
+    }
+
+    onUpdateSettings({
+      googleClientId: trimmedClientId,
+      childName: childNameInput.trim() || 'Mon Fils',
+    });
+
+    setIsBusy(true);
+    const abortCtrl = new AbortController();
+    abortControllerRef.current = abortCtrl;
+
+    try {
+      const existingMediaIds = new Set(
+        customCards.map((c) => c.googleMediaId).filter((id): id is string => Boolean(id))
+      );
+
+      const pickedPhotos = await launchGooglePhotosPickerFlow(
+        trimmedClientId,
+        (st) => {
+          setStatusMessage(st.message);
+          if (st.progress) setProgress(st.progress);
+          if (st.pickerUri) setActivePickerUri(st.pickerUri);
+        },
+        abortCtrl.signal,
+        {
+          randomSampleCount,
+          excludeMediaIds: existingMediaIds,
+        }
+      );
+
+      const startSetNum = customCards.length + 1;
+      const cleanName = childNameInput.trim() || 'Mon Fils';
+
+      const newCards: TCGCard[] = pickedPhotos.map((p, idx) => {
+        const formattedDate = p.createTime
+          ? new Date(p.createTime).toLocaleDateString('fr-FR', {
+              month: 'short',
+              year: 'numeric',
+            })
+          : undefined;
+
+        return createCardFromPhoto({
+          setNumber: startSetNum + idx,
+          imageUrl: p.dataUrl,
+          childName: cleanName,
+          dateLabel: formattedDate,
+          seedString: `${p.googleMediaId}-${idx}-${ Math.random() }`,
+          googleMediaId: p.googleMediaId,
+        });
+      });
+
+      await onAddCustomCards(newCards);
+      onUpdateSettings({
+        lastGoogleSync: new Date().toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      });
+      setStatusMessage(
+        `🎲 ${newCards.length} nouvelles cartes tirées au hasard depuis Google Photos ! Allez ouvrir un booster !`
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur lors de la sélection Google Photos.';
+      setErrorMessage(msg);
+    } finally {
+      setIsBusy(false);
+      setProgress(null);
+      setActivePickerUri(null);
+    }
+  };
+
+  // Handle Direct Local / Drag & Drop / Mobile Photo Library Import (also supports random sampling!)
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setErrorMessage(null);
+    setIsBusy(true);
+
+    let imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      setErrorMessage('Aucun fichier image détecté.');
+      setIsBusy(false);
+      return;
+    }
+
+    // Shuffle local files too!
+    imageFiles = imageFiles.sort(() => Math.random() - 0.5);
+    if (randomSampleCount > 0 && imageFiles.length > randomSampleCount) {
+      imageFiles = imageFiles.slice(0, randomSampleCount);
+    }
+
+    const cleanName = childNameInput.trim() || 'Mon Fils';
+    onUpdateSettings({ childName: cleanName });
+
+    const startSetNum = customCards.length + 1;
+    const createdCards: TCGCard[] = [];
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      setStatusMessage(`Création de la carte surprise ${i + 1} sur ${imageFiles.length}...`);
+      setProgress({ current: i + 1, total: imageFiles.length });
+
+      try {
+        const dataUrl = await blobToCompressedDataUrl(file, 900);
+        const dateStr = file.lastModified
+          ? new Date(file.lastModified).toLocaleDateString('fr-FR', {
+              month: 'short',
+              year: 'numeric',
+            })
+          : undefined;
+
+        const card = createCardFromPhoto({
+          setNumber: startSetNum + i,
+          imageUrl: dataUrl,
+          childName: cleanName,
+          dateLabel: dateStr,
+          seedString: `${file.name}-${file.size}-${i}`,
+        });
+        createdCards.push(card);
+      } catch (e) {
+        console.warn('Erreur lecture image:', e);
+      }
+    }
+
+    await onAddCustomCards(createdCards);
+    setIsBusy(false);
+    setProgress(null);
+    setStatusMessage(
+      `✨ ${createdCards.length} photo(s) tirée(s) au sort et transformée(s) en cartes TCG !`
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto">
+      <div className="relative w-full max-w-2xl rounded-3xl bg-slate-900 border border-white/15 p-5 sm:p-7 shadow-2xl my-auto">
+        <button
+          onClick={() => {
+            abortControllerRef.current?.abort();
+            onClose();
+          }}
+          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Modal Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-pink-500 text-slate-950 flex items-center justify-center shadow-lg">
+            <Images className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="font-display font-black text-xl sm:text-2xl text-white">
+              Studio Photos & Tirage au Hasard
+            </h2>
+            <p className="text-xs text-slate-400">
+              Sélectionnez un grand bloc de photos et laissez le jeu tirer vos cartes au hasard !
+            </p>
+          </div>
+        </div>
+
+        {/* Child First Name & Random Sample Count */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-amber-400 shrink-0" />
+              <label className="text-xs font-bold text-white">Prénom de votre fils</label>
+            </div>
+            <input
+              type="text"
+              value={childNameInput}
+              onChange={(e) => setChildNameInput(e.target.value)}
+              onBlur={handleSaveChildName}
+              placeholder="Ex: Léo..."
+              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-white/15 text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-400 w-32"
+            />
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-amber-400/30 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Dices className="w-4 h-4 text-amber-400 shrink-0" />
+              <label className="text-xs font-bold text-amber-200">Tirage au sort</label>
+            </div>
+            <select
+              value={randomSampleCount}
+              onChange={(e) => setRandomSampleCount(Number(e.target.value))}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-amber-400/40 text-xs font-extrabold text-amber-300 focus:outline-none"
+            >
+              <option value={15}>🎲 15 au hasard</option>
+              <option value={25}>🎲 25 au hasard</option>
+              <option value={50}>🎲 50 au hasard</option>
+              <option value={100}>🎲 100 au hasard</option>
+              <option value={0}>Toutes les photos</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Mode Tabs: Google Photos Picker API vs Direct Import */}
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-950 border border-white/10 mb-5">
+          <button
+            onClick={() => setActiveTab('picker')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${
+              activeTab === 'picker'
+                ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Images className="w-4 h-4" />
+            Google Photos Picker API
+          </button>
+          <button
+            onClick={() => setActiveTab('direct')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${
+              activeTab === 'direct'
+                ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            Import Dossier / Fichiers
+          </button>
+        </div>
+
+        {/* ==================== TAB 1: GOOGLE PHOTOS PICKER API ==================== */}
+        {activeTab === 'picker' && (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-indigo-950/40 border border-indigo-400/30 p-4 text-xs space-y-3">
+              {/* Highlighted Shift+Click Trick for Bulk Random Selection */}
+              <div className="p-3.5 rounded-xl bg-amber-400/15 border border-amber-400/40 space-y-1.5">
+                <p className="font-extrabold text-amber-300 text-xs flex items-center gap-1.5">
+                  <Dices className="w-4 h-4" />
+                  Comment prendre 300 photos au hasard en 2 secondes dans Google Photos :
+                </p>
+                <ol className="list-decimal list-inside text-[11px] text-amber-100/95 space-y-1 leading-relaxed">
+                  <li>
+                    Dans la fenêtre Google Photos, tapez le prénom de votre fils (ou cliquez sur la
+                    bulle de son visage dans la barre de recherche).
+                  </li>
+                  <li>
+                    Cliquez sur la <strong>toute 1re photo</strong> en haut, puis faites défiler
+                    vers le bas sans regarder.
+                  </li>
+                  <li>
+                    Maintenez la touche <kbd className="px-1.5 py-0.5 rounded bg-slate-900 text-amber-300 font-mono font-bold border border-amber-400/40">MAJ (Shift)</kbd> enfoncée et cliquez sur une photo tout en bas :{' '}
+                    <strong>toutes les photos entre les deux (ex: 300 photos) sont sélectionnées d’un seul coup !</strong>
+                  </li>
+                  <li>
+                    Cliquez sur <strong>Done / Terminé</strong> : le jeu tirera automatiquement{' '}
+                    <strong>
+                      {randomSampleCount > 0 ? `${randomSampleCount} photos au hasard` : 'toutes les photos mélangées'}
+                    </strong>{' '}
+                    parmi votre bloc pour garder 100% de surprise à l’ouverture des boosters !
+                  </li>
+                </ol>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <label className="block text-[11px] font-bold text-slate-300">
+                  ID Client Google OAuth 2.0
+                </label>
+                <button
+                  onClick={() => setShowSetupGuide(!showSetupGuide)}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-amber-300 font-bold text-[11px] shrink-0 flex items-center gap-1"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  {showSetupGuide ? 'Masquer aide' : 'Aide configuration Google'}
+                </button>
+              </div>
+
+              {showSetupGuide && (
+                <div className="p-4 rounded-xl bg-slate-950/95 border border-amber-400/30 text-xs text-slate-200 space-y-3">
+                  <div className="space-y-2.5">
+                    <div className="p-2.5 rounded-lg bg-slate-900 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-amber-300">Étape 1 :</span> Activer l’API{' '}
+                        <strong>Google Photos Picker API</strong>.
+                      </div>
+                      <a
+                        href="https://console.cloud.google.com/apis/library/photospicker.googleapis.com"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-300 font-bold text-[11px] shrink-0 inline-flex items-center gap-1"
+                      >
+                        1. Activer l’API <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-900 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-amber-300">Étape 2 :</span> Ajouter votre
+                        Gmail dans <strong>Test users</strong>.
+                      </div>
+                      <a
+                        href="https://console.cloud.google.com/auth/audience"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-300 font-bold text-[11px] shrink-0 inline-flex items-center gap-1"
+                      >
+                        2. Ajouter Gmail test <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-900 border border-white/10 space-y-2">
+                      <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-lg border border-white/10">
+                        <code className="text-amber-300 font-mono text-xs flex-1 select-all">
+                          {window.location.origin}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.origin);
+                            setCopiedOrigin(true);
+                            setTimeout(() => setCopiedOrigin(false), 2000);
+                          }}
+                          className="px-2.5 py-1 rounded bg-amber-400 text-slate-950 font-extrabold text-[11px]"
+                        >
+                          {copiedOrigin ? '✓ Copié !' : 'Copier l’URL'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <input
+                type="text"
+                value={clientIdInput}
+                onChange={(e) => setClientIdInput(e.target.value)}
+                placeholder="1234567890-abcdefg.apps.googleusercontent.com"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-white/15 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400 font-mono"
+              />
+
+              <button
+                onClick={handleLaunchGooglePicker}
+                disabled={isBusy}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-sm shadow-lg hover:brightness-110 disabled:opacity-50 transition flex items-center justify-center gap-2"
+              >
+                {isBusy ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Tirage au sort & Import Google Photos en cours...
+                  </>
+                ) : (
+                  <>
+                    <Dices className="w-5 h-5" />
+                    Ouvrir Google Photos & Tirer{' '}
+                    {randomSampleCount > 0 ? `${randomSampleCount} Photos au Hasard` : 'les Photos'}
+                  </>
+                )}
+              </button>
+
+              {activePickerUri && (
+                <div className="p-4 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 text-center space-y-2 animate-pulse">
+                  <p className="text-xs font-bold text-emerald-200">
+                    ✅ Connexion Google réussie ! Si la fenêtre de sélection a été bloquée par votre navigateur :
+                  </p>
+                  <a
+                    href={`${activePickerUri}/autoclose`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-5 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-display font-black text-sm shadow-lg inline-flex items-center gap-2 transition"
+                  >
+                    👉 Ouvrir ma galerie Google Photos maintenant{' '}
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== TAB 2: DIRECT MULTI-PHOTO IMPORT ==================== */}
+        {activeTab === 'direct' && (
+          <div className="space-y-4">
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleFilesSelected(e.dataTransfer.files);
+              }}
+              className="cursor-pointer rounded-2xl border-2 border-dashed border-amber-400/50 hover:border-amber-400 bg-slate-950/70 hover:bg-slate-950 p-8 text-center transition flex flex-col items-center justify-center gap-3"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFilesSelected(e.target.files)}
+              />
+              <div className="w-14 h-14 rounded-2xl bg-amber-400/15 border border-amber-400/40 flex items-center justify-center text-amber-300">
+                <Upload className="w-7 h-7" />
+              </div>
+              <div>
+                <p className="font-display font-bold text-base text-white">
+                  Glissez tout un dossier ou des centaines de photos ici
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Le jeu tirera automatiquement{' '}
+                  <strong className="text-amber-300">
+                    {randomSampleCount > 0 ? `${randomSampleCount} photos au hasard` : 'toutes les photos'}
+                  </strong>{' '}
+                  sans vous montrer lesquelles avant l’ouverture des boosters !
+                </p>
+              </div>
+              <span className="mt-1 px-4 py-2 rounded-xl bg-amber-400 text-slate-950 font-extrabold text-xs">
+                Sélectionner des photos en bloc
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Progress / Status / Error Feedback */}
+        {statusMessage && (
+          <div className="mt-4 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 text-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {isBusy ? (
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-300 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              )}
+              <span className="font-semibold">{statusMessage}</span>
+            </div>
+            {progress && (
+              <span className="font-mono font-bold text-emerald-300 shrink-0">
+                {progress.current}/{progress.total}
+              </span>
+            )}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mt-4 p-3.5 rounded-2xl bg-red-500/15 border border-red-400/40 text-red-200 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Current Custom Photo Pool Summary */}
+        <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs text-slate-300">
+            <span className="font-bold text-white">{customCards.length}</span> carte(s) secrète(s)
+            prête(s) dans vos boosters
+            {customCards.length === 0 && ' (10 cartes démo actives)'}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {customCards.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      'Voulez-vous vraiment vider toutes les photos importées et recommencer un nouveau tirage ?'
+                    )
+                  ) {
+                    await onClearCustomCards();
+                    setStatusMessage('Toutes les photos ont été réinitialisées.');
+                  }
+                }}
+                className="px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-bold flex items-center gap-1 transition"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Tout effacer
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-extrabold transition"
+            >
+              Fermer & Jouer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
