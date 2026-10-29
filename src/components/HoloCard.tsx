@@ -50,11 +50,11 @@ export const HoloCard: React.FC<HoloCardProps> = ({
     setTilt({ rx: 0, ry: 0, px: 50, py: 50, active: false });
   };
 
-  // Dimensions by size preset
+  // Dimensions by size preset — generous proportions so photo + all text are 100% readable
   const sizeClasses = {
-    sm: 'w-[185px] h-[265px] text-[10px]',
-    md: 'w-[280px] h-[400px] text-xs',
-    lg: 'w-[340px] sm:w-[370px] h-[485px] sm:h-[525px] text-sm',
+    sm: 'w-[195px] h-[285px] text-[10px]',
+    md: 'w-[296px] h-[445px] text-xs',
+    lg: 'w-[350px] sm:w-[380px] h-[525px] sm:h-[560px] text-sm',
   }[size];
 
   const outerBorderClasses = {
@@ -122,26 +122,30 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                   className="w-full h-full object-cover object-center"
                   draggable={false}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/75 via-transparent to-slate-950/90" />
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 via-transparent to-slate-950/95" />
               </div>
             )}
 
-            {/* TOP HEADER BAR */}
-            <div className="relative z-10 px-2.5 pt-2 pb-1 flex items-center justify-between gap-1">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="px-1.5 py-0.5 rounded bg-black/50 backdrop-blur-md text-[9px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/30 shrink-0">
+            {/* TOP HEADER BAR — Full readable title without truncation */}
+            <div className="relative z-10 px-2.5 pt-2 pb-1 flex items-start justify-between gap-1.5">
+              <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                <span className="mt-0.5 px-1.5 py-0.5 rounded bg-black/55 backdrop-blur-md text-[8px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/30 shrink-0">
                   {isFullArt ? 'EX' : 'BASE'}
                 </span>
                 <h3
-                  className={`font-display font-extrabold truncate text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)] ${
-                    size === 'sm' ? 'text-[11px]' : size === 'md' ? 'text-[14px]' : 'text-[17px]'
+                  className={`font-display font-extrabold leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] break-words ${
+                    size === 'sm'
+                      ? 'text-[10px]'
+                      : size === 'md'
+                      ? 'text-[13px]'
+                      : 'text-[16px]'
                   }`}
                 >
                   {card.title}
                 </h3>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0 bg-black/45 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20">
+              <div className="flex items-center gap-1 shrink-0 bg-black/55 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20">
                 <span className="text-[9px] font-bold text-amber-300">PV</span>
                 <span
                   className={`font-display font-black text-white ${
@@ -156,8 +160,8 @@ export const HoloCard: React.FC<HoloCardProps> = ({
 
             {/* FRAMED ARTWORK WINDOW (For Common, Rare, Holo) */}
             {!isFullArt ? (
-              <div className="relative z-10 mx-2.5 my-0.5 flex-1 min-h-0 flex flex-col">
-                <div className="relative w-full h-full rounded-lg overflow-hidden border-[3px] border-amber-200/80 shadow-[inset_0_0_15px_rgba(0,0,0,0.6),0_4px_12px_rgba(0,0,0,0.4)] bg-slate-900">
+              <div className="relative z-10 mx-2.5 my-0.5 flex-1 min-h-[135px] flex flex-col">
+                <div className="relative w-full h-full rounded-lg overflow-hidden border-[2.5px] border-amber-200/80 shadow-[inset_0_0_15px_rgba(0,0,0,0.6),0_4px_12px_rgba(0,0,0,0.4)] bg-slate-900">
                   <img
                     src={card.imageUrl}
                     alt={card.title}
@@ -174,9 +178,9 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                     />
                   )}
                   {/* Subtitle ribbon */}
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-r from-slate-950/85 via-slate-900/75 to-slate-950/85 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between text-[9px] text-amber-100/90 border-t border-white/15">
-                    <span className="truncate font-medium">{card.subtitle}</span>
-                    <span className="text-amber-300/90 font-semibold shrink-0 ml-1">
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-r from-slate-950/90 via-slate-900/80 to-slate-950/90 backdrop-blur-sm px-2 py-0.5 flex items-center justify-between gap-1 text-[9px] text-amber-100 border-t border-white/15">
+                    <span className="font-medium leading-tight">{card.subtitle}</span>
+                    <span className="text-amber-300 font-semibold shrink-0">
                       {card.dateLabel}
                     </span>
                   </div>
@@ -184,22 +188,22 @@ export const HoloCard: React.FC<HoloCardProps> = ({
               </div>
             ) : (
               /* Full-Art Spacer showing off the photo in the center */
-              <div className="relative z-10 flex-1 flex items-end justify-between px-3 pb-1">
-                <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md text-[10px] text-amber-200 font-semibold border border-amber-300/30">
+              <div className="relative z-10 flex-1 flex items-end justify-between gap-1 px-2.5 pb-1">
+                <span className="px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-[10px] text-amber-200 font-semibold border border-amber-300/30 leading-tight">
                   {card.subtitle}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-md text-[10px] text-white/90 border border-white/20">
+                <span className="px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-[10px] text-white/95 border border-white/20 shrink-0">
                   {card.dateLabel}
                 </span>
               </div>
             )}
 
-            {/* ATTACKS & STATS BOX */}
+            {/* ATTACKS & STATS BOX — Full multiline text without clipping */}
             <div
               className={`relative z-10 mx-2 mb-2 rounded-lg p-2 flex flex-col justify-between gap-1.5 ${
                 isFullArt
-                  ? 'bg-slate-950/75 backdrop-blur-md border border-white/25'
-                  : 'bg-slate-950/55 backdrop-blur-sm border border-white/15'
+                  ? 'bg-slate-950/82 backdrop-blur-md border border-white/25'
+                  : 'bg-slate-950/68 backdrop-blur-sm border border-white/15'
               }`}
             >
               {/* Attacks List */}
@@ -208,7 +212,7 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                   <div
                     key={i}
                     className={`${
-                      i === 0 ? 'border-b border-white/10 pb-1' : ''
+                      i === 0 ? 'border-b border-white/10 pb-1.5' : ''
                     } flex flex-col`}
                   >
                     <div className="flex items-center justify-between gap-1">
@@ -221,8 +225,12 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                           ))}
                         </span>
                         <span
-                          className={`font-bold text-white truncate ${
-                            size === 'sm' ? 'text-[10px]' : 'text-xs'
+                          className={`font-bold text-white leading-tight ${
+                            size === 'sm'
+                              ? 'text-[10px]'
+                              : size === 'md'
+                              ? 'text-[11.5px]'
+                              : 'text-[13px]'
                           }`}
                         >
                           {atk.name}
@@ -230,14 +238,18 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                       </div>
                       <span
                         className={`font-display font-black text-amber-300 shrink-0 ${
-                          size === 'sm' ? 'text-xs' : 'text-sm'
+                          size === 'sm' ? 'text-xs' : size === 'md' ? 'text-xs' : 'text-sm'
                         }`}
                       >
                         {atk.damage}
                       </span>
                     </div>
                     {size !== 'sm' && (
-                      <p className="text-[10px] text-slate-200/85 leading-tight line-clamp-1 mt-0.5">
+                      <p
+                        className={`text-slate-100/90 leading-snug mt-0.5 ${
+                          size === 'md' ? 'text-[10px]' : 'text-[11px]'
+                        }`}
+                      >
                         {atk.description}
                       </p>
                     )}
@@ -246,8 +258,8 @@ export const HoloCard: React.FC<HoloCardProps> = ({
               </div>
 
               {/* Weakness / Resistance / Rarity Footer */}
-              <div className="pt-1 border-t border-white/15 flex items-center justify-between text-[9px] text-slate-200/90">
-                <div className="truncate">
+              <div className="pt-1 border-t border-white/15 flex items-center justify-between gap-1 text-[9px] text-slate-200">
+                <div className="leading-tight">
                   <span className="text-slate-400">Faibl:</span> {card.weakness}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -262,9 +274,13 @@ export const HoloCard: React.FC<HoloCardProps> = ({
                 </div>
               </div>
 
-              {/* Flavor Text (shown on md and lg cards) */}
+              {/* Flavor Text (shown on md and lg cards — full text readable) */}
               {size !== 'sm' && (
-                <div className="text-[9px] italic text-amber-100/80 bg-black/30 rounded px-1.5 py-1 leading-tight line-clamp-2 border border-white/5">
+                <div
+                  className={`italic text-amber-100/90 bg-black/40 rounded px-2 py-1 leading-snug border border-white/10 ${
+                    size === 'md' ? 'text-[9.5px]' : 'text-[10.5px]'
+                  }`}
+                >
                   {card.flavorText}
                 </div>
               )}

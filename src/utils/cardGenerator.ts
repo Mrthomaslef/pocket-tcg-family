@@ -159,48 +159,48 @@ export const BOOSTER_SERIES: BoosterSeries[] = [
 ];
 
 const TITLE_TEMPLATES: { suffix: string; subtitle: string; element: ElementType }[] = [
-  { suffix: 'le Roi du Canapé', subtitle: 'Forme Sieste Imminente', element: 'calin' },
-  { suffix: 'EX Turbo', subtitle: 'Vitesse Supersonique dans le Couloir', element: 'turbulent' },
-  { suffix: 'Sourire Fatal', subtitle: 'Charme Irrésistible Niv. 99', element: 'malice' },
-  { suffix: 'l’Explorateur Intrépide', subtitle: 'Découvreur de Trésors Cachés', element: 'explorateur' },
-  { suffix: 'Maître des Grimaces', subtitle: 'Technique Secrète du Fou Rire', element: 'malice' },
-  { suffix: 'Prince des Câlins', subtitle: 'Armure de Douceur Absolue', element: 'calin' },
-  { suffix: 'Super-Héros du Dimanche', subtitle: 'Cape Invisible Activée', element: 'magique' },
-  { suffix: 'Stratège du Goûter', subtitle: 'Détecteur de Chocobons à 500m', element: 'explorateur' },
-  { suffix: 'Boss Final de la Maison', subtitle: 'Édition Couronne Suprême', element: 'legende' },
-  { suffix: 'Tornade de Joie', subtitle: 'Batterie Rechargée à 200%', element: 'turbulent' },
-  { suffix: 'Mage du Pyjama', subtitle: 'Incantation d’Histoire du Soir', element: 'magique' },
-  { suffix: 'Empereur du Bac à Sable', subtitle: 'Architecte de Châteaux Géants', element: 'legende' },
-  { suffix: 'Regard d’Ange', subtitle: 'Innocent à 99% (environ)', element: 'calin' },
-  { suffix: 'Ninja du Salon', subtitle: 'Furtivité Totale pieds nus', element: 'turbulent' },
+  { suffix: 'Roi du Canapé', subtitle: 'Mode Sieste Activé', element: 'calin' },
+  { suffix: 'EX Turbo', subtitle: 'Sprint dans le Couloir', element: 'turbulent' },
+  { suffix: 'Sourire Fatal', subtitle: 'Charme Niv. 99', element: 'malice' },
+  { suffix: 'l’Explorateur', subtitle: 'Chasseur de Trésors', element: 'explorateur' },
+  { suffix: 'Roi des Grimaces', subtitle: 'Maître du Fou Rire', element: 'malice' },
+  { suffix: 'Prince Câlin', subtitle: 'Douceur Absolue', element: 'calin' },
+  { suffix: 'Super-Héros', subtitle: 'Cape Invisible', element: 'magique' },
+  { suffix: 'Roi du Goûter', subtitle: 'Radar à Chocolat', element: 'explorateur' },
+  { suffix: 'Boss Final', subtitle: 'Couronne Suprême', element: 'legende' },
+  { suffix: 'Tornade Vive', subtitle: 'Énergie à 200%', element: 'turbulent' },
+  { suffix: 'Mage Pyjama', subtitle: 'Histoire du Soir', element: 'magique' },
+  { suffix: 'Roi du Parc', subtitle: 'Bâtisseur Géant', element: 'legende' },
+  { suffix: 'Regard d’Ange', subtitle: 'Innocent à 99%', element: 'calin' },
+  { suffix: 'Ninja Furtif', subtitle: 'Pas de Loup', element: 'turbulent' },
 ];
 
 const FIRST_ATTACKS: CardAttack[] = [
-  { name: 'Yeux de Chat Potté', damage: 30, energyCost: 1, description: 'Annule immédiatement toute tentative de gronder.' },
-  { name: 'Course Poursuite', damage: 40, energyCost: 1, description: 'Traverse toute la maison en rigolant très fort.' },
-  { name: 'Encore 5 Minutes !', damage: 20, energyCost: 1, description: 'Retarde l’heure du coucher de 2 tours complets.' },
-  { name: 'Câlin Surprise', damage: 50, energyCost: 2, description: 'Restaure 100% du moral de Papa et Maman.' },
-  { name: 'Pourquoi ? Pourquoi ?', damage: 35, energyCost: 1, description: 'Pose 12 questions à la seconde. Rend l’adversaire confus.' },
-  { name: 'Rire Contagieux', damage: 45, energyCost: 1, description: 'Tout le monde dans la pièce est obligé de sourire.' },
-  { name: 'Négociation de Dessert', damage: 40, energyCost: 2, description: 'Obtient un deuxième biscuit sans manger les légumes.' },
+  { name: 'Yeux Doux', damage: 30, energyCost: 1, description: 'Impossible de le gronder pendant 2 tours.' },
+  { name: 'Turbo Course', damage: 40, energyCost: 1, description: 'Traverse le salon en rigolant.' },
+  { name: 'Encore 5 Min !', damage: 20, energyCost: 1, description: 'Repousse l’heure du dodo.' },
+  { name: 'Câlin Surprise', damage: 50, energyCost: 2, description: 'Redonne 100% d’énergie à Papa et Maman.' },
+  { name: 'Pourquoi ?', damage: 35, energyCost: 1, description: 'Pose 10 questions d’affilée. Rend confus.' },
+  { name: 'Fou Rire', damage: 45, energyCost: 1, description: 'Toute la famille est obligée de sourire.' },
+  { name: 'Double Biscuit', damage: 40, energyCost: 2, description: 'Obtient un dessert bonus sans négocier.' },
 ];
 
 const SECOND_ATTACKS: CardAttack[] = [
-  { name: 'Explosion de Joie EX', damage: 120, energyCost: 3, description: 'Un moment légendaire immortalisé pour toujours.' },
-  { name: 'Tempête de Chatouilles', damage: 90, energyCost: 2, description: 'Attaque imparable. Provoque des fous rires critiques.' },
-  { name: 'Ultra Bêtise Secrète', damage: 110, energyCost: 3, description: 'Si la pièce est trop silencieuse, cette attaque inflige +80 dégâts.' },
-  { name: 'Rayon Sourire Doré', damage: 140, energyCost: 3, description: 'Illumine instantanément toute la galerie Google Photos.' },
-  { name: 'Gros Bisou Magique', damage: 100, energyCost: 2, description: 'Guérit tous les petits bobos et fait briller la carte.' },
-  { name: 'Saut sur le Lit Royal', damage: 130, energyCost: 3, description: 'Ignore la gravité pendant 3 secondes.' },
+  { name: 'Joie Suprême EX', damage: 120, energyCost: 3, description: 'Un souvenir magique gravé pour toujours.' },
+  { name: 'Méga Chatouilles', damage: 90, energyCost: 2, description: 'Attaque imparable de fous rires.' },
+  { name: 'Bêtise Secrète', damage: 110, energyCost: 3, description: '+80 dégâts si la maison est trop calme.' },
+  { name: 'Sourire Doré', damage: 140, energyCost: 3, description: 'Illumine instantanément toute la journée.' },
+  { name: 'Bisou Magique', damage: 100, energyCost: 2, description: 'Guérit tous les petits bobos d’un coup.' },
+  { name: 'Saut Royal', damage: 130, energyCost: 3, description: 'Défie la gravité sur le grand lit.' },
 ];
 
 const FLAVOR_TEXTS: string[] = [
-  '« On entend son rire à trois pièces de distance, surtout quand il prépare un coup de génie. »',
-  '« Selon la légende, il possède une réserve d’énergie infinie exactement à 20h45. »',
-  '« Un souvenir précieux capturé au moment parfait. Rareté émotionnelle : inestimable. »',
-  '« Capable de transformer n’importe quelle journée ordinaire en grande aventure épique. »',
-  '« Son sourire a le pouvoir mystérieux de faire oublier toutes les bêtises faites 5 minutes avant. »',
-  '« Les scientifiques cherchent encore comment autant de malice peut tenir dans une seule photo. »',
+  '« Son rire s’entend à trois pièces quand il prépare un coup de génie. »',
+  '« Batterie pleine à 200% pile au moment d’aller dormir. »',
+  '« Un souvenir précieux capturé au moment parfait. »',
+  '« Transforme chaque journée en grande aventure. »',
+  '« Un seul sourire suffit à faire oublier toutes ses bêtises. »',
+  '« Autant de malice et de tendresse dans une seule carte ! »',
 ];
 
 function hashString(str: string): number {

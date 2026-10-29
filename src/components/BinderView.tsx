@@ -226,7 +226,7 @@ export const BinderView: React.FC<BinderViewProps> = ({
                     </div>
                   ) : (
                     /* Unowned Mystery Pocket Slot */
-                    <div className="w-[280px] h-[400px] rounded-[18px] bg-slate-950/90 border-2 border-dashed border-slate-700/70 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+                    <div className="w-[296px] h-[445px] rounded-[18px] bg-slate-950/90 border-2 border-dashed border-slate-700/70 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
                       {/* Blurred preview silhouette of the card */}
                       <img
                         src={card.imageUrl}
