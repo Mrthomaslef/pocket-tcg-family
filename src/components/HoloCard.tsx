@@ -126,36 +126,42 @@ export const HoloCard: React.FC<HoloCardProps> = ({
               </div>
             )}
 
-            {/* TOP HEADER BAR — Full readable title without truncation */}
-            <div className="relative z-10 px-2.5 pt-2 pb-1 flex items-start justify-between gap-1.5">
-              <div className="flex items-start gap-1.5 min-w-0 flex-1">
-                <span className="mt-0.5 px-1.5 py-0.5 rounded bg-black/55 backdrop-blur-md text-[8px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/30 shrink-0">
-                  {isFullArt ? 'EX' : 'BASE'}
-                </span>
-                <h3
-                  className={`font-display font-extrabold leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.95)] break-words ${
-                    size === 'sm'
-                      ? 'text-[10px]'
-                      : size === 'md'
-                      ? 'text-[13px]'
-                      : 'text-[16px]'
-                  }`}
-                >
-                  {card.title}
-                </h3>
+            {/* TOP HEADER BAR — Full-width 2-line layout so "Émile [description]" always appears 100% in full */}
+            <div className="relative z-10 mx-2 mt-2 mb-1 rounded-lg bg-slate-950/65 backdrop-blur-md border border-white/20 px-2.5 py-1.5 flex flex-col gap-0.5 shadow-sm">
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-1.5 py-0.2 rounded bg-amber-400/20 text-[8.5px] font-extrabold uppercase tracking-wider text-amber-300 border border-amber-400/40">
+                    {isFullArt ? 'EX FULL-ART' : 'SOUVENIR'}
+                  </span>
+                  <span className="text-[9px] font-semibold text-slate-300">
+                    #{String(card.setNumber).padStart(3, '0')}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-[9px] font-bold text-amber-300">PV</span>
+                  <span
+                    className={`font-display font-black text-white leading-none ${
+                      size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base'
+                    }`}
+                  >
+                    {card.hp}
+                  </span>
+                  <span className="text-xs leading-none">{elem.emoji}</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1 shrink-0 bg-black/55 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20">
-                <span className="text-[9px] font-bold text-amber-300">PV</span>
-                <span
-                  className={`font-display font-black text-white ${
-                    size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base'
-                  }`}
-                >
-                  {card.hp}
-                </span>
-                <span className="text-sm leading-none">{elem.emoji}</span>
-              </div>
+              <h3
+                className={`w-full font-display font-black leading-snug text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] whitespace-normal break-words ${
+                  size === 'sm'
+                    ? 'text-[10.5px]'
+                    : size === 'md'
+                    ? 'text-[13px]'
+                    : 'text-[15.5px]'
+                }`}
+              >
+                {card.title}
+              </h3>
             </div>
 
             {/* FRAMED ARTWORK WINDOW (For Common, Rare, Holo) */}

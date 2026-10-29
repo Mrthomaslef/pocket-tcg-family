@@ -31,7 +31,7 @@ const DEFAULT_CLIENT_ID =
   '817822977351-5m288vfdn4arbv5o35rd8skt2le8ektu.apps.googleusercontent.com';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  childName: 'Mon Fils',
+  childName: 'Émile',
   soundEnabled: true,
   googleClientId: DEFAULT_CLIENT_ID,
   totalPacksOpened: 0,
@@ -49,6 +49,8 @@ export const App: React.FC = () => {
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
+        childName:
+          !parsed.childName || parsed.childName === 'Mon Fils' ? 'Émile' : parsed.childName,
         googleClientId: parsed.googleClientId || DEFAULT_CLIENT_ID,
       };
     } catch {
@@ -82,7 +84,11 @@ export const App: React.FC = () => {
   // Load stored custom cards on mount
   useEffect(() => {
     getAllStoredCards().then((stored) => {
-      setCustomCards(stored);
+      const normalized = stored.map((c) => ({
+        ...c,
+        title: c.title.replace(/^Mon Fils\b/i, 'Émile'),
+      }));
+      setCustomCards(normalized);
       setIsLoaded(true);
     });
   }, []);
@@ -135,6 +141,7 @@ export const App: React.FC = () => {
     const merged = [...customCards, ...newCards].map((c, idx) => ({
       ...c,
       setNumber: idx + 1,
+      title: c.title.replace(/^Mon Fils\b/i, 'Émile'),
     }));
     await saveStoredCards(merged);
     setCustomCards(merged);
