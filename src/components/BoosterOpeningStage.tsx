@@ -12,15 +12,20 @@ import {
   Flame,
   Hand,
   Eye,
+  Download,
+  Loader2,
 } from 'lucide-react';
 
 interface BoosterOpeningStageProps {
   allCards: TCGCard[];
   collection: CollectionMap;
   childName: string;
+  isImportingPack?: boolean;
+  importStatusText?: string | null;
   onPackOpened: (pulled: PulledCardResult[]) => void;
   onInspectCard: (card: TCGCard) => void;
   onOpenPhotoManager: () => void;
+  onTriggerImportPack: () => void;
 }
 
 type StagePhase = 'ready' | 'bursting' | 'stack' | 'summary';
@@ -39,9 +44,12 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   allCards,
   collection,
   childName,
+  isImportingPack = false,
+  importStatusText = null,
   onPackOpened,
   onInspectCard,
   onOpenPhotoManager,
+  onTriggerImportPack,
 }) => {
   const [selectedSeries, setSelectedSeries] = useState<BoosterSeries>(BOOSTER_SERIES[0]);
   const [phase, setPhase] = useState<StagePhase>('ready');
@@ -359,34 +367,58 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
         />
       )}
 
-      {/* Subtle Prompt if user hasn't imported real Google Photos yet */}
-      {customPhotosCount === 0 && (
-        <div className="w-full max-w-2xl mb-5 rounded-2xl bg-gradient-to-r from-indigo-950/90 via-purple-950/90 to-slate-900/90 border border-amber-400/40 p-3.5 sm:px-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
-          <div className="flex items-center gap-3 text-center sm:text-left">
-            <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shrink-0 text-amber-300">
-              <Images className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs sm:text-sm font-bold text-white">
-                Mode Démo Actif — Transformez les photos de {childName} en vraies cartes !
-              </p>
-              <p className="text-[11px] text-slate-300">
-                Connectez Google Photos Picker ou glissez vos photos favorites en 1 clic.
-              </p>
+      {/* ==================== EMPTY STATE: DIRECT PACK IMPORT OR GOOGLE PHOTOS ==================== */}
+      {allCards.length === 0 && (
+        <div className="w-full max-w-xl my-8 rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-slate-900/95 border border-white/15 p-7 sm:p-10 text-center shadow-2xl flex flex-col items-center gap-5">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-500 p-0.5 shadow-[0_0_35px_rgba(251,191,36,0.45)]">
+            <div className="w-full h-full rounded-[22px] bg-slate-950 flex items-center justify-center">
+              <Crown className="w-10 h-10 text-amber-400 animate-pulse" />
             </div>
           </div>
-          <button
-            onClick={onOpenPhotoManager}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-extrabold text-xs whitespace-nowrap shadow-md hover:brightness-110 transition flex items-center gap-1.5"
-          >
-            <Images className="w-4 h-4" />
-            Importer Google Photos
-          </button>
+
+          <div className="space-y-2">
+            <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
+              Prêt à ouvrir vos Boosters ?
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+              Importez un fichier de Pack (`.json`) directement ou tirez vos photos au hasard depuis
+              Google Photos pour commencer la collection.
+            </p>
+          </div>
+
+          <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button
+              onClick={onTriggerImportPack}
+              disabled={isImportingPack}
+              className="w-full sm:w-auto flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-sm shadow-[0_0_30px_rgba(251,191,36,0.4)] hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2.5 disabled:opacity-50"
+            >
+              {isImportingPack ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>{importStatusText || 'Importation en cours...'}</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  <span>📥 Importer un Pack (.json)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={onOpenPhotoManager}
+              disabled={isImportingPack}
+              className="w-full sm:w-auto py-4 px-5 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-white/15 text-white font-display font-bold text-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Images className="w-5 h-5 text-amber-400" />
+              <span>Google Photos</span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING ==================== */}
-      {(phase === 'ready' || phase === 'bursting') && (
+      {allCards.length > 0 && (phase === 'ready' || phase === 'bursting') && (
         <div className="w-full flex flex-col items-center">
           {/* Booster Edition Selector Pills */}
           <div className="flex flex-wrap items-center justify-center gap-2 mb-5">

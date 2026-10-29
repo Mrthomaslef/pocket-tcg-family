@@ -676,7 +676,6 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
           <div className="text-xs text-slate-300">
             <span className="font-bold text-white">{customCards.length}</span> carte(s) secrète(s)
             prête(s) dans vos boosters
-            {customCards.length === 0 && ' (10 cartes démo actives)'}
           </div>
 
           <div className="flex items-center gap-2">

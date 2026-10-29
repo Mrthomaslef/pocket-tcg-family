@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppSettings, CollectionMap, PulledCardResult, TCGCard } from './types/tcg';
 import {
   clearAllStoredCards,
   deleteStoredCard,
   getAllStoredCards,
+  parseHugePackFileStreaming,
   saveStoredCards,
 } from './utils/db';
-import { getDemoStarterCards } from './utils/cardGenerator';
 import { soundFX } from './utils/soundFX';
 import { BoosterOpeningStage } from './components/BoosterOpeningStage';
 import { BinderView } from './components/BinderView';
@@ -20,6 +20,8 @@ import {
   VolumeX,
   Crown,
   PackageOpen,
+  Download,
+  Loader2,
 } from 'lucide-react';
 
 const STORAGE_SETTINGS_KEY = 'sonny_tcg_settings_v1';
@@ -64,9 +66,14 @@ export const App: React.FC = () => {
     }
   });
 
-  // Custom photo cards stored in IndexedDB
+  // Custom photo cards stored in IndexedDB (no demo cards!)
   const [customCards, setCustomCards] = useState<TCGCard[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Direct Home Page Pack Import status
+  const [isImportingPack, setIsImportingPack] = useState(false);
+  const [importStatusText, setImportStatusText] = useState<string | null>(null);
+  const directPackInputRef = useRef<HTMLInputElement>(null);
 
   // Modals
   const [inspectedCard, setInspectedCard] = useState<TCGCard | null>(null);
@@ -95,13 +102,7 @@ export const App: React.FC = () => {
     } catch {}
   }, [collection]);
 
-  // Active card pool: if user has imported real photos of their son, use those! Otherwise use starter demo set.
-  const allCards = useMemo(() => {
-    if (customCards.length > 0) {
-      return customCards;
-    }
-    return getDemoStarterCards(settings.childName);
-  }, [customCards, settings.childName]);
+  const allCards = customCards;
 
   const ownedUniqueCount = useMemo(
     () => allCards.filter((c) => (collection[c.id]?.count || 0) > 0).length,
@@ -139,12 +140,44 @@ export const App: React.FC = () => {
     setCustomCards(merged);
   };
 
-  const handleUpdateCard = async (updated: TCGCard) => {
-    if (updated.isCustomPhoto) {
-      const next = customCards.map((c) => (c.id === updated.id ? updated : c));
-      await saveStoredCards(next);
-      setCustomCards(next);
+  const handleDirectPackFileSelected = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    setIsImportingPack(true);
+    const sizeMb = Math.round(file.size / (1024 * 1024));
+    setImportStatusText(`Lecture du pack (${sizeMb} Mo)...`);
+
+    try {
+      const parsed = await parseHugePackFileStreaming(file, (count, pct) => {
+        setImportStatusText(`Import & compression : ${count} cartes (${pct}%)...`);
+      });
+
+      if (!parsed.cards || parsed.cards.length === 0) {
+        throw new Error('Aucune carte trouvée dans ce fichier.');
+      }
+
+      if (parsed.childName) {
+        handleUpdateSettings({ childName: parsed.childName });
+      }
+
+      await handleAddCustomCards(parsed.cards);
+      setImportStatusText(`🎉 ${parsed.cards.length} cartes importées avec succès !`);
+      setTimeout(() => setImportStatusText(null), 4000);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur lors de la lecture du pack.');
+      setImportStatusText(null);
+    } finally {
+      setIsImportingPack(false);
+      if (directPackInputRef.current) {
+        directPackInputRef.current.value = '';
+      }
     }
+  };
+
+  const handleUpdateCard = async (updated: TCGCard) => {
+    const next = customCards.map((c) => (c.id === updated.id ? updated : c));
+    await saveStoredCards(next);
+    setCustomCards(next);
     setInspectedCard(updated);
   };
 
@@ -173,6 +206,15 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col justify-between pb-10">
+      {/* Hidden Direct Pack File Input accessible from anywhere on Home Page */}
+      <input
+        ref={directPackInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={(e) => handleDirectPackFileSelected(e.target.files)}
+      />
+
       {/* ==================== TOP NAVIGATION HEADER ==================== */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-slate-950/80 border-b border-white/10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -235,8 +277,21 @@ export const App: React.FC = () => {
             </button>
           </nav>
 
-          {/* Right Actions: Google Photos Picker & Sound Toggle */}
+          {/* Right Actions: Direct Pack Import + Google Photos Picker + Sound Toggle */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => directPackInputRef.current?.click()}
+              disabled={isImportingPack}
+              className="px-3.5 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-xs font-extrabold text-pink-200 transition flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            >
+              {isImportingPack ? (
+                <Loader2 className="w-4 h-4 animate-spin text-pink-300" />
+              ) : (
+                <Download className="w-4 h-4 text-pink-300" />
+              )}
+              <span>Importer un Pack</span>
+            </button>
+
             <button
               onClick={() => setIsPhotoManagerOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/50 text-xs font-bold text-indigo-100 transition flex items-center gap-1.5 shadow-sm"
@@ -244,7 +299,7 @@ export const App: React.FC = () => {
               <Images className="w-4 h-4 text-amber-300" />
               <span className="hidden sm:inline">Google Photos</span>
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-950/80 text-amber-300 text-[10px] font-extrabold border border-indigo-400/30">
-                {customCards.length > 0 ? customCards.length : 'Démo'}
+                {customCards.length}
               </span>
             </button>
 
@@ -261,6 +316,14 @@ export const App: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Live Streaming Pack Import Banner */}
+        {importStatusText && (
+          <div className="bg-emerald-500/20 border-t border-emerald-400/40 px-4 py-2 text-center text-xs font-bold text-emerald-200 flex items-center justify-center gap-2">
+            {isImportingPack && <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />}
+            <span>{importStatusText}</span>
+          </div>
+        )}
       </header>
 
       {/* ==================== MAIN CONTENT STAGE ==================== */}
@@ -270,9 +333,12 @@ export const App: React.FC = () => {
             allCards={allCards}
             collection={collection}
             childName={settings.childName}
+            isImportingPack={isImportingPack}
+            importStatusText={importStatusText}
             onPackOpened={handlePackOpened}
             onInspectCard={(card) => setInspectedCard(card)}
             onOpenPhotoManager={() => setIsPhotoManagerOpen(true)}
+            onTriggerImportPack={() => directPackInputRef.current?.click()}
           />
         ) : (
           <BinderView
@@ -304,7 +370,7 @@ export const App: React.FC = () => {
           countOwned={collection[inspectedCard.id]?.count || 0}
           onClose={() => setInspectedCard(null)}
           onUpdateCard={handleUpdateCard}
-          onDeleteCard={inspectedCard.isCustomPhoto ? handleDeleteCard : undefined}
+          onDeleteCard={handleDeleteCard}
         />
       )}
 
