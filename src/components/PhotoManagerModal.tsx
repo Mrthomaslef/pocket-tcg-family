@@ -55,7 +55,54 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
   const [activePickerUri, setActivePickerUri] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const packImportInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleExportFamilyPack = () => {
+    if (customCards.length === 0) return;
+    const payload = {
+      version: 1,
+      childName: childNameInput.trim() || settings.childName || 'Mon Fils',
+      exportedAt: new Date().toISOString(),
+      cards: customCards,
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = (payload.childName || 'famille').toLowerCase().replace(/[^a-z0-9]/g, '-');
+    a.href = url;
+    a.download = `pack-cartes-${safeName}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatusMessage(
+      '🎁 Pack exporté ! Envoyez ce fichier à votre femme (AirDrop, WhatsApp, Mail) pour qu’elle l’importe en 1 clic.'
+    );
+  };
+
+  const handleImportFamilyPack = async (files: FileList | null) => {
+    const file = files?.[0];
+    if (!file) return;
+    setErrorMessage(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (!parsed.cards || !Array.isArray(parsed.cards)) {
+        throw new Error('Fichier de pack invalide.');
+      }
+      if (parsed.childName) {
+        setChildNameInput(parsed.childName);
+        onUpdateSettings({ childName: parsed.childName });
+      }
+      await onAddCustomCards(parsed.cards);
+      setStatusMessage(
+        `🎉 Pack de ${parsed.cards.length} cartes chargé avec succès ! Vous pouvez ouvrir vos boosters !`
+      );
+    } catch (e) {
+      setErrorMessage(
+        e instanceof Error ? e.message : 'Impossible de lire ce fichier de pack.'
+      );
+    }
+  };
 
   const handleSaveChildName = () => {
     const trimmed = childNameInput.trim() || 'Mon Fils';
@@ -511,8 +558,45 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
           </div>
         )}
 
+        {/* Family Pack Share Section (Export / Import for Wife / Family) */}
+        <div className="mt-5 p-3.5 rounded-2xl bg-slate-950/90 border border-pink-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs">
+            <p className="font-bold text-pink-300">
+              🎁 Partager ce jeu de cartes avec votre femme
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Exportez vos cartes en 1 fichier et envoyez-le lui (AirDrop / WhatsApp) : elle n’aura même pas besoin de configurer Google Photos !
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <input
+              ref={packImportInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(e) => handleImportFamilyPack(e.target.files)}
+            />
+            {customCards.length > 0 && (
+              <button
+                type="button"
+                onClick={handleExportFamilyPack}
+                className="px-3 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/50 text-pink-200 text-xs font-extrabold transition"
+              >
+                📤 Exporter le Pack
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => packImportInputRef.current?.click()}
+              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold transition"
+            >
+              📥 Importer un Pack reçu
+            </button>
+          </div>
+        </div>
+
         {/* Current Custom Photo Pool Summary */}
-        <div className="mt-6 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-slate-300">
             <span className="font-bold text-white">{customCards.length}</span> carte(s) secrète(s)
             prête(s) dans vos boosters
