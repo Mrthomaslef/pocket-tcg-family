@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings, TCGCard } from '../types/tcg';
 import { launchGooglePhotosPickerFlow } from '../services/googlePhotosPicker';
-import { blobToCompressedDataUrl } from '../utils/db';
+import {
+  blobToCompressedDataUrl,
+  parseHugePackFileStreaming,
+  recompressDataUrl,
+} from '../utils/db';
 import { createCardFromPhoto } from '../utils/cardGenerator';
 import {
   X,
@@ -58,49 +62,104 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
   const packImportInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleExportFamilyPack = () => {
-    if (customCards.length === 0) return;
-    const payload = {
-      version: 1,
-      childName: childNameInput.trim() || settings.childName || 'Mon Fils',
-      exportedAt: new Date().toISOString(),
-      cards: customCards,
-    };
-    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const safeName = (payload.childName || 'famille').toLowerCase().replace(/[^a-z0-9]/g, '-');
-    a.href = url;
-    a.download = `pack-cartes-${safeName}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatusMessage(
-      '🎁 Pack exporté ! Envoyez ce fichier à votre femme (AirDrop, WhatsApp, Mail) pour qu’elle l’importe en 1 clic.'
-    );
+  const [exportMaxCards, setExportMaxCards] = useState<number>(60);
+
+  const handleExportFamilyPack = async () => {
+    if (customCards.length === 0 || isBusy) return;
+    setErrorMessage(null);
+    setIsBusy(true);
+
+    try {
+      // Pick random subset if user chose e.g. 60 or 120 cards so the file is only ~2-5 MB for WhatsApp/AirDrop!
+      let cardsToExport = [...customCards];
+      if (exportMaxCards > 0 && cardsToExport.length > exportMaxCards) {
+        cardsToExport = cardsToExport.sort(() => Math.random() - 0.5).slice(0, exportMaxCards);
+      }
+
+      const compressedCards: TCGCard[] = [];
+      for (let i = 0; i < cardsToExport.length; i++) {
+        setStatusMessage(
+          `Compression ultra-légère de la carte ${i + 1} sur ${cardsToExport.length}...`
+        );
+        setProgress({ current: i + 1, total: cardsToExport.length });
+        const c = cardsToExport[i];
+        const lightUrl = await recompressDataUrl(c.imageUrl, 560, 0.7);
+        compressedCards.push({ ...c, setNumber: i + 1, imageUrl: lightUrl });
+      }
+
+      const childNameVal = childNameInput.trim() || settings.childName || 'Mon Fils';
+      // Build Blob in chunks so we NEVER hit V8's max string length even on huge packs
+      const blobParts: BlobPart[] = [
+        `{"version":1,"childName":${JSON.stringify(
+          childNameVal
+        )},"exportedAt":${JSON.stringify(new Date().toISOString())},"cards":[`,
+      ];
+      for (let i = 0; i < compressedCards.length; i++) {
+        if (i > 0) blobParts.push(',');
+        blobParts.push(JSON.stringify(compressedCards[i]));
+      }
+      blobParts.push(']}');
+
+      const blob = new Blob(blobParts, { type: 'application/json' });
+      const sizeMb = (blob.size / (1024 * 1024)).toFixed(1);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safeName = (childNameVal || 'famille').toLowerCase().replace(/[^a-z0-9]/g, '-');
+      a.href = url;
+      a.download = `pack-cartes-${safeName}-${compressedCards.length}cartes.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setStatusMessage(
+        `🎁 Pack léger exporté (${compressedCards.length} cartes • seulement ${sizeMb} Mo) ! Prêt à envoyer à votre femme.`
+      );
+    } catch (e) {
+      setErrorMessage(
+        e instanceof Error ? e.message : 'Erreur lors de la création du pack.'
+      );
+    } finally {
+      setIsBusy(false);
+      setProgress(null);
+    }
   };
 
   const handleImportFamilyPack = async (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
     setErrorMessage(null);
+    setIsBusy(true);
+    const sizeMb = Math.round(file.size / (1024 * 1024));
+    setStatusMessage(
+      `Lecture en streaming et compression du fichier (${sizeMb} Mo)... Patientez quelques secondes.`
+    );
+
     try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!parsed.cards || !Array.isArray(parsed.cards)) {
-        throw new Error('Fichier de pack invalide.');
+      const parsed = await parseHugePackFileStreaming(file, (count, pct) => {
+        setStatusMessage(
+          `Importation & compression en cours : ${count} cartes extraites (${pct}%)...`
+        );
+      });
+
+      if (!parsed.cards || parsed.cards.length === 0) {
+        throw new Error('Aucune carte trouvée dans ce fichier.');
       }
+
       if (parsed.childName) {
         setChildNameInput(parsed.childName);
         onUpdateSettings({ childName: parsed.childName });
       }
+
       await onAddCustomCards(parsed.cards);
       setStatusMessage(
-        `🎉 Pack de ${parsed.cards.length} cartes chargé avec succès ! Vous pouvez ouvrir vos boosters !`
+        `🎉 ${parsed.cards.length} cartes importées et compressées avec succès ! Allez ouvrir vos boosters !`
       );
     } catch (e) {
       setErrorMessage(
         e instanceof Error ? e.message : 'Impossible de lire ce fichier de pack.'
       );
+    } finally {
+      setIsBusy(false);
+      setProgress(null);
     }
   };
 
@@ -559,16 +618,18 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
         )}
 
         {/* Family Pack Share Section (Export / Import for Wife / Family) */}
-        <div className="mt-5 p-3.5 rounded-2xl bg-slate-950/90 border border-pink-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-xs">
-            <p className="font-bold text-pink-300">
-              🎁 Partager ce jeu de cartes avec votre femme
-            </p>
-            <p className="text-[11px] text-slate-400">
-              Exportez vos cartes en 1 fichier et envoyez-le lui (AirDrop / WhatsApp) : elle n’aura même pas besoin de configurer Google Photos !
-            </p>
+        <div className="mt-5 p-3.5 rounded-2xl bg-slate-950/90 border border-pink-400/30 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="text-xs">
+              <p className="font-bold text-pink-300">
+                🎁 Partager ce jeu de cartes avec votre femme (Format Ultra-Léger)
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Compresse automatiquement les cartes en WebP (~2 à 5 Mo au lieu de 300 Mo) et lit aussi les gros fichiers de 300 Mo+ en streaming !
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <input
               ref={packImportInputRef}
               type="file"
@@ -577,20 +638,35 @@ export const PhotoManagerModal: React.FC<PhotoManagerModalProps> = ({
               onChange={(e) => handleImportFamilyPack(e.target.files)}
             />
             {customCards.length > 0 && (
-              <button
-                type="button"
-                onClick={handleExportFamilyPack}
-                className="px-3 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/50 text-pink-200 text-xs font-extrabold transition"
-              >
-                📤 Exporter le Pack
-              </button>
+              <>
+                <select
+                  value={exportMaxCards}
+                  onChange={(e) => setExportMaxCards(Number(e.target.value))}
+                  disabled={isBusy}
+                  className="px-2.5 py-2 rounded-xl bg-slate-900 border border-pink-400/40 text-xs font-bold text-pink-200 focus:outline-none"
+                >
+                  <option value={50}>Pack 50 cartes (~2 Mo - WhatsApp)</option>
+                  <option value={100}>Pack 100 cartes (~4 Mo)</option>
+                  <option value={200}>Pack 200 cartes (~8 Mo)</option>
+                  <option value={0}>Toutes ({customCards.length} cartes compressées)</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={isBusy}
+                  onClick={handleExportFamilyPack}
+                  className="px-3.5 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-400/50 text-pink-200 text-xs font-extrabold transition disabled:opacity-50"
+                >
+                  📤 Exporter Pack Léger
+                </button>
+              </>
             )}
             <button
               type="button"
+              disabled={isBusy}
               onClick={() => packImportInputRef.current?.click()}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold transition"
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-extrabold transition disabled:opacity-50"
             >
-              📥 Importer un Pack reçu
+              📥 Importer un Pack (même 300 Mo)
             </button>
           </div>
         </div>
