@@ -8,6 +8,7 @@ import {
   saveStoredCards,
 } from './utils/db';
 import { soundFX } from './utils/soundFX';
+import { upgradeCardToNewLore } from './utils/cardGenerator';
 import { BoosterOpeningStage } from './components/BoosterOpeningStage';
 import { BinderView } from './components/BinderView';
 import { CardInspectModal } from './components/CardInspectModal';
@@ -102,15 +103,15 @@ export const App: React.FC = () => {
     setIsInstallModalOpen(false);
   };
 
-  // Load stored custom cards on mount
+  // Load stored custom cards on mount & upgrade legacy generic phrases to personalized Émile lore
   useEffect(() => {
-    getAllStoredCards().then((stored) => {
-      const normalized = stored.map((c) => ({
-        ...c,
-        title: c.title.replace(/^Mon Fils\b/i, 'Émile'),
-      }));
-      setCustomCards(normalized);
+    getAllStoredCards().then(async (stored) => {
+      const upgraded = stored.map((c) => upgradeCardToNewLore(c, 'Émile'));
+      setCustomCards(upgraded);
       setIsLoaded(true);
+      if (stored.length > 0) {
+        saveStoredCards(upgraded).catch(() => {});
+      }
     });
   }, []);
 
@@ -159,11 +160,9 @@ export const App: React.FC = () => {
   };
 
   const handleAddCustomCards = async (newCards: TCGCard[]) => {
-    const merged = [...customCards, ...newCards].map((c, idx) => ({
-      ...c,
-      setNumber: idx + 1,
-      title: c.title.replace(/^Mon Fils\b/i, 'Émile'),
-    }));
+    const merged = [...customCards, ...newCards].map((c, idx) =>
+      upgradeCardToNewLore({ ...c, setNumber: idx + 1 }, 'Émile')
+    );
     await saveStoredCards(merged);
     setCustomCards(merged);
   };

@@ -403,7 +403,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const tensionScale =
     phase === 'bursting' ? 1.12 : 1 + (tearProgress / 100) * 0.07;
 
-  // Dynamic viewport-locked scale factors so Booster, Card Stack, and 5-Card Summary NEVER scroll on any phone
+  // Dynamic viewport-locked scale factors so Booster, Card Stack, and 5-Card Summary (3 top + 2 bottom) NEVER scroll on any phone
   const boosterScale = Math.max(
     0.52,
     Math.min(1.05, (viewportSize.w - 16) / 324, (viewportSize.h - 12) / 490)
@@ -412,16 +412,10 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     0.52,
     Math.min(1.05, (viewportSize.w - 16) / 368, (viewportSize.h - 12) / 548)
   );
-  const scale3x2 = Math.max(
-    0.3,
-    Math.min(0.95, (viewportSize.w - 12) / 924, (viewportSize.h - 12) / 912)
+  const summaryScale = Math.max(
+    0.28,
+    Math.min(0.85, (viewportSize.w - 12) / 924, (viewportSize.h - 12) / 912)
   );
-  const scale5x1 = Math.max(
-    0.2,
-    Math.min(0.95, (viewportSize.w - 16) / 1548, (viewportSize.h - 12) / 470)
-  );
-  const useSingleRowSummary = scale5x1 > scale3x2;
-  const summaryScale = useSingleRowSummary ? scale5x1 : scale3x2;
 
   return (
     <div className="flex-1 min-h-0 w-full max-w-5xl mx-auto px-2.5 sm:px-4 py-2 flex flex-col items-center justify-between overflow-hidden relative select-none">
@@ -535,7 +529,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 transform: `scale(${boosterScale})`,
                 transformOrigin: 'center center',
               }}
-              className="relative w-[310px] h-[475px] flex items-center justify-center perspective-1500"
+              className="shrink-0 relative w-[310px] h-[475px] flex items-center justify-center perspective-1500"
             >
               {/* Ambient Rarity Halo Behind Booster */}
               <div
@@ -849,7 +843,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 transform: `scale(${stackScale})`,
                 transformOrigin: 'center center',
               }}
-              className="relative w-[360px] h-[535px] flex items-center justify-center"
+              className="shrink-0 relative w-[360px] h-[535px] flex items-center justify-center"
             >
               {/* Ambient Rarity Backlight Aura */}
               <div
@@ -961,7 +955,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             </p>
           </div>
 
-          {/* Auto-Scaled 5-Card Showcase Stage (3+2 on portrait phones, 5-in-a-row on wide screens) */}
+          {/* Auto-Scaled 5-Card Showcase Stage: Strictly 3 on top row + 2 on bottom row */}
           <div
             ref={stageViewportRef}
             className="flex-1 min-h-0 w-full flex items-center justify-center relative overflow-hidden"
@@ -971,26 +965,43 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 transform: `scale(${summaryScale})`,
                 transformOrigin: 'center center',
               }}
-              className={
-                useSingleRowSummary
-                  ? 'w-[1544px] h-[460px] flex items-center justify-center gap-4'
-                  : 'w-[920px] h-[906px] flex flex-wrap items-center justify-center gap-4 content-center'
-              }
+              className="shrink-0 w-[924px] h-[908px] flex flex-col items-center justify-center gap-4"
             >
-              {pulledCards.map((item, idx) => (
-                <div
-                  key={`${item.card.id}-${idx}`}
-                  className="flex flex-col items-center group"
-                >
-                  <HoloCard
-                    card={item.card}
-                    size="md"
-                    interactive={true}
-                    isNew={item.isNew}
-                    onClick={() => onInspectCard(item.card)}
-                  />
-                </div>
-              ))}
+              {/* Top Row: First 3 Cards Side-by-Side */}
+              <div className="flex flex-row items-center justify-center gap-4 shrink-0">
+                {pulledCards.slice(0, 3).map((item, idx) => (
+                  <div
+                    key={`top-${item.card.id}-${idx}`}
+                    className="shrink-0 flex flex-col items-center group"
+                  >
+                    <HoloCard
+                      card={item.card}
+                      size="md"
+                      interactive={true}
+                      isNew={item.isNew}
+                      onClick={() => onInspectCard(item.card)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Bottom Row: Last 2 Cards Side-by-Side */}
+              <div className="flex flex-row items-center justify-center gap-6 shrink-0">
+                {pulledCards.slice(3, 5).map((item, idx) => (
+                  <div
+                    key={`bot-${item.card.id}-${idx}`}
+                    className="shrink-0 flex flex-col items-center group"
+                  >
+                    <HoloCard
+                      card={item.card}
+                      size="md"
+                      interactive={true}
+                      isNew={item.isNew}
+                      onClick={() => onInspectCard(item.card)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 

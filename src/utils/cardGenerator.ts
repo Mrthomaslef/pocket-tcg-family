@@ -159,49 +159,70 @@ export const BOOSTER_SERIES: BoosterSeries[] = [
 ];
 
 const TITLE_TEMPLATES: { suffix: string; subtitle: string; element: ElementType }[] = [
-  { suffix: 'Roi du Canapé', subtitle: 'Mode Sieste Activé', element: 'calin' },
-  { suffix: 'EX Turbo', subtitle: 'Sprint dans le Couloir', element: 'turbulent' },
+  { suffix: 'Fan de Dinosaures', subtitle: 'Expert T-Rex & Rugissements', element: 'turbulent' },
+  { suffix: 'Maître Pokémon', subtitle: 'Dresseur Légendaire', element: 'magique' },
+  { suffix: 'Roi des Puzzles', subtitle: 'Concentration Niv. 100', element: 'malice' },
+  { suffix: 'Explorateur en Corse', subtitle: 'Soleil & Maquis Sauvage', element: 'explorateur' },
+  { suffix: 'Aventurier d’Étretat', subtitle: 'Roi des Galets & Falaises', element: 'explorateur' },
+  { suffix: 'Ami des Animaux', subtitle: 'Star du Zoo & de la Ferme', element: 'calin' },
+  { suffix: 'Chez Papini & Mamieso', subtitle: 'Chouchou Officiel', element: 'calin' },
+  { suffix: 'Chez Manouche & Papou', subtitle: 'Trésor des Grands-Parents', element: 'calin' },
+  { suffix: 'Team Tonton Matt', subtitle: 'Complices de Choc', element: 'turbulent' },
+  { suffix: 'Team Tonton Arti', subtitle: 'Duo de Fous Rires', element: 'malice' },
+  { suffix: 'Chouchou de Tata Lulu', subtitle: 'Câlins & Magie', element: 'magique' },
+  { suffix: 'Roi de la Ferme', subtitle: 'Murmure aux Animaux', element: 'explorateur' },
+  { suffix: 'Explorateur du Zoo', subtitle: 'Ami des Lions & Girafes', element: 'explorateur' },
+  { suffix: 'Roi du Canapé', subtitle: 'Mode Câlin Activé', element: 'calin' },
+  { suffix: 'EX Turbo', subtitle: 'Sprint dans le Salon', element: 'turbulent' },
   { suffix: 'Sourire Fatal', subtitle: 'Charme Niv. 99', element: 'malice' },
-  { suffix: 'l’Explorateur', subtitle: 'Chasseur de Trésors', element: 'explorateur' },
-  { suffix: 'Roi des Grimaces', subtitle: 'Maître du Fou Rire', element: 'malice' },
-  { suffix: 'Prince Câlin', subtitle: 'Douceur Absolue', element: 'calin' },
-  { suffix: 'Super-Héros', subtitle: 'Cape Invisible', element: 'magique' },
-  { suffix: 'Roi du Goûter', subtitle: 'Radar à Chocolat', element: 'explorateur' },
   { suffix: 'Boss Final', subtitle: 'Couronne Suprême', element: 'legende' },
-  { suffix: 'Tornade Vive', subtitle: 'Énergie à 200%', element: 'turbulent' },
-  { suffix: 'Mage Pyjama', subtitle: 'Histoire du Soir', element: 'magique' },
-  { suffix: 'Roi du Parc', subtitle: 'Bâtisseur Géant', element: 'legende' },
-  { suffix: 'Regard d’Ange', subtitle: 'Innocent à 99%', element: 'calin' },
-  { suffix: 'Ninja Furtif', subtitle: 'Pas de Loup', element: 'turbulent' },
 ];
 
 const FIRST_ATTACKS: CardAttack[] = [
+  { name: 'Cri du T-Rex', damage: 50, energyCost: 1, description: 'Imite son dinosaure préféré et impressionne tout le salon !' },
+  { name: 'Pièce Finale du Puzzle', damage: 40, energyCost: 1, description: 'Termine son puzzle d’un coup de maître sans aucune aide.' },
+  { name: 'Lancer de Pokéball', damage: 45, energyCost: 1, description: 'Capture son Pokémon préféré du premier coup !' },
+  { name: 'Câlin Papini & Mamieso', damage: 50, energyCost: 2, description: 'Restaure 100% des PV grâce aux bisous de Papini et Mamieso.' },
+  { name: 'Goûter chez Manouche & Papou', damage: 50, energyCost: 2, description: 'Double ration de gourmandises avec Manouche et Papou.' },
+  { name: 'Cascade avec Tonton Matt', damage: 45, energyCost: 1, description: 'Déclenche une partie de rigolade géante avec Tonton Matt.' },
+  { name: 'Blague avec Tonton Arti', damage: 40, energyCost: 1, description: 'Fait rire toute la famille avec son complice Tonton Arti.' },
+  { name: 'Bisou de Tata Lulu', damage: 45, energyCost: 1, description: 'Tata Lulu lui donne un pouvoir magique invincible.' },
+  { name: 'Galets d’Étretat', damage: 35, energyCost: 1, description: 'Collectionne les plus beaux cailloux face aux falaises d’Étretat.' },
+  { name: 'Soleil de Corse', damage: 45, energyCost: 1, description: 'Fait le plein d’énergie sur l’île de Beauté.' },
+  { name: 'Tour de la Ferme', damage: 40, energyCost: 1, description: 'Salue les poules, les vaches et les moutons un par un.' },
   { name: 'Yeux Doux', damage: 30, energyCost: 1, description: 'Impossible de le gronder pendant 2 tours.' },
-  { name: 'Turbo Course', damage: 40, energyCost: 1, description: 'Traverse le salon en rigolant.' },
-  { name: 'Encore 5 Min !', damage: 20, energyCost: 1, description: 'Repousse l’heure du dodo.' },
-  { name: 'Câlin Surprise', damage: 50, energyCost: 2, description: 'Redonne 100% d’énergie à Papa et Maman.' },
-  { name: 'Pourquoi ?', damage: 35, energyCost: 1, description: 'Pose 10 questions d’affilée. Rend confus.' },
-  { name: 'Fou Rire', damage: 45, energyCost: 1, description: 'Toute la famille est obligée de sourire.' },
-  { name: 'Double Biscuit', damage: 40, energyCost: 2, description: 'Obtient un dessert bonus sans négocier.' },
 ];
 
 const SECOND_ATTACKS: CardAttack[] = [
-  { name: 'Joie Suprême EX', damage: 120, energyCost: 3, description: 'Un souvenir magique gravé pour toujours.' },
-  { name: 'Méga Chatouilles', damage: 90, energyCost: 2, description: 'Attaque imparable de fous rires.' },
-  { name: 'Bêtise Secrète', damage: 110, energyCost: 3, description: '+80 dégâts si la maison est trop calme.' },
-  { name: 'Sourire Doré', damage: 140, energyCost: 3, description: 'Illumine instantanément toute la journée.' },
-  { name: 'Bisou Magique', damage: 100, energyCost: 2, description: 'Guérit tous les petits bobos d’un coup.' },
-  { name: 'Saut Royal', damage: 130, energyCost: 3, description: 'Défie la gravité sur le grand lit.' },
+  { name: 'Méga Rugissement Dino EX', damage: 130, energyCost: 3, description: 'Toute la puissance des dinosaures réunie dans une attaque légendaire !' },
+  { name: 'Attaque Pokémon Ultime', damage: 140, energyCost: 3, description: 'Émile invoque tous ses Pokémon préférés pour gagner la partie.' },
+  { name: 'Roi du Zoo & des Animaux', damage: 120, energyCost: 3, description: 'Tous les animaux du zoo et de la ferme l’acclament en chœur.' },
+  { name: 'Amour des Grands-Parents', damage: 150, energyCost: 3, description: 'L’énergie combinée de Papini, Mamieso, Manouche et Papou !' },
+  { name: 'Super Trio Matt, Arti & Lulu', damage: 130, energyCost: 3, description: 'Attaque combinée avec Tonton Matt, Tonton Arti et Tata Lulu !' },
+  { name: 'Souvenir de Corse & Étretat', damage: 120, energyCost: 2, description: 'Des vacances inoubliables gravées pour toujours.' },
+  { name: 'Maître des 1000 Puzzles', damage: 110, energyCost: 2, description: 'Assemble toutes les pièces à la vitesse de l’éclair.' },
+  { name: 'Joie Suprême EX', damage: 120, energyCost: 3, description: 'Illumine instantanément toute la journée de Papa et Maman.' },
 ];
 
 const FLAVOR_TEXTS: string[] = [
+  '« Entre les dinosaures, les Pokémon et les puzzles, Émile ne s’arrête jamais ! »',
+  '« Toujours prêt à faire des câlins géants à Papini, Mamieso, Manouche et Papou. »',
+  '« Dès que Tonton Matt, Tonton Arti ou Tata Lulu arrivent, la fête commence ! »',
+  '« Qu’il soit en Corse ou devant les falaises d’Étretat, c’est le roi des explorateurs. »',
+  '« À la ferme comme au zoo, Émile connaît le cri de tous les animaux par cœur ! »',
+  '« Aucun puzzle ni aucun dinosaure n’a de secret pour lui. »',
+  '« Un sourire malicieux qui fait fondre toute la famille en une seconde. »',
+  '« Son rire s’entend à trois pièces quand il joue avec ses Pokémon et ses dinosaures. »',
+];
+
+export const LEGACY_GENERIC_FLAVORS = new Set([
   '« Son rire s’entend à trois pièces quand il prépare un coup de génie. »',
   '« Batterie pleine à 200% pile au moment d’aller dormir. »',
   '« Un souvenir précieux capturé au moment parfait. »',
   '« Transforme chaque journée en grande aventure. »',
   '« Un seul sourire suffit à faire oublier toutes ses bêtises. »',
   '« Autant de malice et de tendresse dans une seule carte ! »',
-];
+]);
 
 function hashString(str: string): number {
   let h = 2166136261;
@@ -265,6 +286,33 @@ export function createCardFromPhoto(params: {
     retreatCost: (seed % 3) + 1,
     isCustomPhoto: true,
     googleMediaId: params.googleMediaId,
+  };
+}
+
+/**
+ * Upgrades an existing card that had old generic phrases to the new personalized Émile family & passions lore
+ * while preserving its id, setNumber, imageUrl, rarity, and dateLabel.
+ */
+export function upgradeCardToNewLore(card: TCGCard, childName = 'Émile'): TCGCard {
+  if (!LEGACY_GENERIC_FLAVORS.has(card.flavorText)) {
+    return {
+      ...card,
+      title: card.title.replace(/^Mon Fils\b/i, childName),
+    };
+  }
+  const upgraded = createCardFromPhoto({
+    id: card.id,
+    setNumber: card.setNumber,
+    imageUrl: card.imageUrl,
+    childName,
+    dateLabel: card.dateLabel,
+    seedString: `${card.id}-v2-${card.setNumber}`,
+    googleMediaId: card.googleMediaId,
+    forcedRarity: card.rarity,
+  });
+  return {
+    ...upgraded,
+    isCustomPhoto: card.isCustomPhoto,
   };
 }
 

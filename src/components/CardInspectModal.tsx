@@ -93,17 +93,42 @@ export const CardInspectModal: React.FC<CardInspectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-3xl bg-slate-900/95 border border-white/15 p-5 sm:p-7 shadow-2xl my-auto">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-slate-300 hover:text-white transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-4xl max-h-[94dvh] rounded-3xl bg-slate-900/95 border border-white/15 shadow-2xl flex flex-col overflow-hidden"
+      >
+        {/* Pinned Top Bar so the Close / Back button is ALWAYS 100% visible on any phone */}
+        <div className="shrink-0 z-50 flex items-center justify-between gap-2 px-4 py-3 bg-slate-950/90 border-b border-white/10">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-extrabold border ${
+                RARITY_CONFIG[previewCard.rarity].colorClass
+              }`}
+            >
+              {RARITY_CONFIG[previewCard.rarity].stars}
+            </span>
+            <h3 className="font-display font-black text-sm sm:text-base text-white truncate">
+              {previewCard.title}
+            </h3>
+          </div>
 
-        <div className="flex flex-col lg:flex-row items-center gap-8">
+          <button
+            onClick={onClose}
+            aria-label="Fermer l'aperçu"
+            className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-display font-black text-xs flex items-center gap-1.5 shadow-[0_0_15px_rgba(251,191,36,0.5)] transition"
+          >
+            <X className="w-4 h-4 stroke-[2.5]" />
+            <span>Fermer</span>
+          </button>
+        </div>
+
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row items-center gap-6 sm:gap-8">
           {/* Left: 3D Interactive Card Showcase */}
           <div className="flex flex-col items-center gap-4 shrink-0">
             <HoloCard
@@ -400,6 +425,7 @@ export const CardInspectModal: React.FC<CardInspectModalProps> = ({
                 </div>
               </form>
             )}
+          </div>
           </div>
         </div>
       </div>
