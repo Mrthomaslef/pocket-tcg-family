@@ -53,10 +53,16 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
 }) => {
   const [selectedSeries, setSelectedSeries] = useState<BoosterSeries>(BOOSTER_SERIES[0]);
   const [phase, setPhase] = useState<StagePhase>('ready');
+  const phaseRef = useRef<StagePhase>('ready');
+  phaseRef.current = phase;
 
-  // Interactive foil tear state (0 to 100)
+  // Interactive foil tear state (0 to 100) + synchronous refs so fast swipes never lag or get stuck
   const [tearProgress, setTearProgress] = useState<number>(0);
+  const tearProgressRef = useRef<number>(0);
+  const tearStartClientXRef = useRef<number | null>(null);
   const [isDraggingTear, setIsDraggingTear] = useState<boolean>(false);
+  const isDraggingTearRef = useRef<boolean>(false);
+
   const [packTilt, setPackTilt] = useState({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
   const [sparks, setSparks] = useState<SparkParticle[]>([]);
   const [screenFlash, setScreenFlash] = useState<boolean>(false);
@@ -69,20 +75,19 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   // Mystery Hit Card Face-Down Flip state (for Holo / Ultra / Crown cards!)
   const [isCurrentCardFaceDown, setIsCurrentCardFaceDown] = useState<boolean>(false);
 
-  // Card swipe animation state
+  // Card swipe animation state + synchronous refs
   const [cardSwipeOffset, setCardSwipeOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const swipeDeltaRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isSwipingCard, setIsSwipingCard] = useState<boolean>(false);
   const [isAnimatingOut, setIsAnimatingOut] = useState<boolean>(false);
   const [exitDirection, setExitDirection] = useState<{ x: number; y: number }>({ x: 420, y: -40 });
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const packRef = useRef<HTMLDivElement>(null);
-  const customPhotosCount = allCards.filter((c) => c.isCustomPhoto).length;
+
   // Only show an already-pulled custom photo on the pack cover so unpulled photos remain a 100% surprise!
   const coverPhotoUrl =
-    allCards.find((c) => c.isCustomPhoto && (collection[c.id]?.count || 0) > 0)?.imageUrl ||
-    allCards.find((c) => !c.isCustomPhoto)?.imageUrl ||
-    '';
+    allCards.find((c) => c.isCustomPhoto && (collection[c.id]?.count || 0) > 0)?.imageUrl || '';
 
   // Pre-roll the pack when entering 'ready' so the internal seam glow matches the best card inside!
   const pendingPackRef = useRef<{ cards: TCGCard[]; isGodPack: boolean } | null>(null);
@@ -130,71 +135,100 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     }
   };
 
-  // Start tearing from the left side of the booster seam
-  const handleSeamPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (phase !== 'ready' || !packRef.current) return;
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
+  // Start tearing the booster pack on pointer down
+  const handlePackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (phaseRef.current !== 'ready' || !packRef.current) return;
+    try {
+      packRef.current.setPointerCapture(e.pointerId);
+    } catch {}
+
+    tearStartClientXRef.current = e.clientX;
+    isDraggingTearRef.current = true;
+    setIsDraggingTear(true);
+    soundFX.playNotchGrab();
 
     const rect = packRef.current.getBoundingClientRect();
     const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-
-    // Must start on the left side (0% to 35%) or near current tear progress
-    if (relX <= 0.38 || Math.abs(relX * 100 - tearProgress) < 25) {
-      setIsDraggingTear(true);
-      soundFX.playNotchGrab();
-      const startPct = Math.max(tearProgress, Math.min(18, Math.round(relX * 100)));
-      setTearProgress(startPct);
+    // If user starts near the left edge, set initial progress to relX
+    if (relX < 0.25 && tearProgressRef.current < 10) {
+      const initial = Math.max(6, Math.round(relX * 100));
+      tearProgressRef.current = initial;
+      setTearProgress(initial);
     }
   };
 
-  // Update progressive foil tear as finger/mouse slices across the pack
-  const updateTearFromClientX = (clientX: number, clientY: number) => {
-    if (!packRef.current || phase !== 'ready' || !isDraggingTear) return;
+  // Smoothly update tear from either horizontal drag distance OR position across the pack
+  const handlePackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!packRef.current) return;
     const rect = packRef.current.getBoundingClientRect();
-    const relX = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const percentage = Math.round(relX * 100);
 
-    // Smooth forward slicing without jumping from 0% straight to 100%
-    if (percentage > tearProgress && percentage - tearProgress <= 45) {
-      setTearProgress(percentage);
-      soundFX.playTearStep(percentage / 100);
+    if (isDraggingTearRef.current && phaseRef.current === 'ready') {
+      const startX = tearStartClientXRef.current ?? rect.left;
+      const dragDeltaPct = Math.max(0, ((e.clientX - startX) / (rect.width * 0.72)) * 100);
+      const posPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
 
-      // Spawn burst of metallic & glowing sparks at the tear point
-      const glowColor = getPackSeamGlowColor();
-      const newSparks: SparkParticle[] = Array.from({ length: 5 }).map((_, i) => ({
-        id: Date.now() + Math.random() + i,
-        x: percentage,
-        y: Math.max(10, Math.min(24, ((clientY - rect.top) / rect.height) * 100)),
-        size: 4 + Math.random() * 6,
-        angle: -90 + (Math.random() - 0.5) * 140,
-        distance: 25 + Math.random() * 55,
-        color: i % 2 === 0 ? '#ffffff' : glowColor,
-      }));
-      setSparks((prev) => [...prev.slice(-24), ...newSparks]);
+      // Combine position & drag distance so any swipe left-to-right works effortlessly at any speed!
+      const rawPct = Math.round(Math.max(dragDeltaPct, startX < rect.left + rect.width * 0.45 ? posPct : dragDeltaPct));
+      const nextPct = Math.min(100, Math.max(tearProgressRef.current, rawPct));
 
-      if (percentage >= 88) {
-        completePackTear();
+      if (nextPct > tearProgressRef.current) {
+        tearProgressRef.current = nextPct;
+        setTearProgress(nextPct);
+        soundFX.playTearStep(nextPct / 100);
+
+        const glowColor = getPackSeamGlowColor();
+        const newSparks: SparkParticle[] = Array.from({ length: 4 }).map((_, i) => ({
+          id: Date.now() + Math.random() + i,
+          x: nextPct,
+          y: 16 + (Math.random() - 0.5) * 6,
+          size: 4 + Math.random() * 6,
+          angle: -90 + (Math.random() - 0.5) * 140,
+          distance: 25 + Math.random() * 55,
+          color: i % 2 === 0 ? '#ffffff' : glowColor,
+        }));
+        setSparks((prev) => [...prev.slice(-20), ...newSparks]);
+
+        if (nextPct >= 82) {
+          completePackTear();
+        }
       }
+      return;
     }
+
+    // 3D hover tilt when not tearing
+    const px = ((e.clientX - rect.left) / rect.width) * 100;
+    const py = ((e.clientY - rect.top) / rect.height) * 100;
+    const ry = ((px - 50) / 50) * 14;
+    const rx = -((py - 50) / 50) * 11;
+    setPackTilt({ rx, ry, glareX: px, glareY: py });
   };
 
-  // If user releases finger before finishing the tear, snap back with tension!
-  const handleReleaseTearEarly = () => {
-    if (!isDraggingTear) return;
+  // Release pointer on booster
+  const handlePackPointerUpOrCancel = () => {
+    if (!isDraggingTearRef.current) return;
+    isDraggingTearRef.current = false;
     setIsDraggingTear(false);
-    if (tearProgress < 88 && phase === 'ready') {
+    tearStartClientXRef.current = null;
+
+    if (tearProgressRef.current >= 82 && phaseRef.current === 'ready') {
+      completePackTear();
+    } else if (phaseRef.current === 'ready') {
+      // Snap back if released early
+      tearProgressRef.current = 0;
       setTearProgress(0);
       setSparks([]);
     }
   };
 
   const completePackTear = () => {
-    if (phase !== 'ready') return;
+    if (phaseRef.current !== 'ready') return;
+    phaseRef.current = 'bursting';
+    isDraggingTearRef.current = false;
     setIsDraggingTear(false);
+    tearProgressRef.current = 100;
     setTearProgress(100);
     setScreenFlash(true);
-    setTimeout(() => setScreenFlash(false), 450);
+    setTimeout(() => setScreenFlash(false), 420);
 
     const drawn = pendingPackRef.current || drawBoosterPack(allCards, 5);
     const results: PulledCardResult[] = drawn.cards.map((card, idx) => ({
@@ -215,6 +249,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     onPackOpened(results);
 
     setTimeout(() => {
+      phaseRef.current = 'stack';
       setPhase('stack');
       if (results[0]) {
         const firstIsHit = isBigHitRarity(results[0].card.rarity);
@@ -223,29 +258,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
           soundFX.playRarityReveal(results[0].card.rarity);
         }
       }
-    }, 850);
-  };
-
-  // Booster 3D hover tilt when inspecting pack
-  const handlePackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDraggingTear) {
-      updateTearFromClientX(e.clientX, e.clientY);
-      return;
-    }
-    if (!packRef.current) return;
-    const rect = packRef.current.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width) * 100;
-    const py = ((e.clientY - rect.top) / rect.height) * 100;
-    const ry = ((px - 50) / 50) * 14;
-    const rx = -((py - 50) / 50) * 11;
-    setPackTilt({ rx, ry, glareX: px, glareY: py });
-  };
-
-  const handlePackPointerLeave = () => {
-    if (isDraggingTear) {
-      handleReleaseTearEarly();
-    }
-    setPackTilt({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
+    }, 780);
   };
 
   // Flip a face-down Mystery Hit card with dramatic reveal!
@@ -263,36 +276,45 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   const flingCurrentCardOffStack = (dirX: number, dirY: number) => {
     if (isAnimatingOut) return;
     const norm = Math.hypot(dirX, dirY) || 1;
-    const targetX = (dirX / norm) * 480;
-    const targetY = (dirY / norm) * 280 - 30;
+    const targetX = (dirX / norm) * 460;
+    const targetY = (dirY / norm) * 240 - 30;
 
     setExitDirection({ x: targetX, y: targetY });
     setIsAnimatingOut(true);
     soundFX.playCardSwipe();
 
     setTimeout(() => {
-      const nextIdx = currentCardIndex + 1;
       setCardSwipeOffset({ x: 0, y: 0 });
+      swipeDeltaRef.current = { x: 0, y: 0 };
       setIsAnimatingOut(false);
 
-      if (nextIdx >= pulledCards.length) {
-        setPhase('summary');
-      } else {
-        setCurrentCardIndex(nextIdx);
-        const nextCard = pulledCards[nextIdx].card;
-        const nextIsHit = isBigHitRarity(nextCard.rarity);
-        setIsCurrentCardFaceDown(nextIsHit);
-        if (!nextIsHit) {
-          soundFX.playRarityReveal(nextCard.rarity);
+      setCurrentCardIndex((prevIdx) => {
+        const nextIdx = prevIdx + 1;
+        if (nextIdx >= pulledCards.length) {
+          phaseRef.current = 'summary';
+          setPhase('summary');
+          return prevIdx;
         }
-      }
-    }, 270);
+        const nextCard = pulledCards[nextIdx]?.card;
+        if (nextCard) {
+          const nextIsHit = isBigHitRarity(nextCard.rarity);
+          setIsCurrentCardFaceDown(nextIsHit);
+          if (!nextIsHit) {
+            soundFX.playRarityReveal(nextCard.rarity);
+          }
+        }
+        return nextIdx;
+      });
+    }, 250);
   };
 
   const handleCardStackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isAnimatingOut) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
     swipeStartRef.current = { x: e.clientX, y: e.clientY, time: performance.now() };
+    swipeDeltaRef.current = { x: 0, y: 0 };
     setIsSwipingCard(true);
   };
 
@@ -300,42 +322,45 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     if (!isSwipingCard || !swipeStartRef.current) return;
     const dx = e.clientX - swipeStartRef.current.x;
     const dy = e.clientY - swipeStartRef.current.y;
+    swipeDeltaRef.current = { x: dx, y: dy };
     setCardSwipeOffset({ x: dx, y: dy });
   };
 
-  const handleCardStackPointerUp = () => {
+  const handleCardStackPointerUpOrCancel = () => {
     if (!isSwipingCard || !swipeStartRef.current) return;
     setIsSwipingCard(false);
 
-    const dx = cardSwipeOffset.x;
-    const dy = cardSwipeOffset.y;
+    const { x: dx, y: dy } = swipeDeltaRef.current;
     const dist = Math.hypot(dx, dy);
-    const elapsed = Math.max(1, performance.now() - swipeStartRef.current.time);
-    const velocity = dist / elapsed; // px per ms
-
     swipeStartRef.current = null;
 
-    // If card is face-down (Mystery Hit!), a tap or small swipe flips it face-up first!
+    // 1. If card is face-down (Mystery Hit!), any tap or swipe flips it face-up in 3D first!
     if (isCurrentCardFaceDown) {
+      swipeDeltaRef.current = { x: 0, y: 0 };
       setCardSwipeOffset({ x: 0, y: 0 });
       revealFaceDownHitCard();
       return;
     }
 
-    // If user dragged far enough (>75px) or flicked quickly (velocity > 0.45 and dist > 30px), fling card off!
-    if (dist > 75 || (velocity > 0.45 && dist > 30)) {
-      flingCurrentCardOffStack(dx || 1, dy);
+    // 2. If user swiped the card (> 30px), fling it in that direction; if they tapped it (< 12px), fling it smoothly to the right!
+    if (dist > 30) {
+      flingCurrentCardOffStack(dx, dy);
+    } else if (dist < 12) {
+      flingCurrentCardOffStack(1, -0.15);
     } else {
+      swipeDeltaRef.current = { x: 0, y: 0 };
       setCardSwipeOffset({ x: 0, y: 0 });
     }
   };
 
   const resetForNextBooster = () => {
+    tearProgressRef.current = 0;
     setTearProgress(0);
     setSparks([]);
     setPulledCards([]);
     setCurrentCardIndex(0);
     setIsCurrentCardFaceDown(false);
+    phaseRef.current = 'ready';
     setPhase('ready');
   };
 
@@ -429,6 +454,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   key={series.id}
                   onClick={() => {
                     setSelectedSeries(series);
+                    tearProgressRef.current = 0;
                     setTearProgress(0);
                   }}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
@@ -449,9 +475,9 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             <Hand className="w-4 h-4 text-amber-400 animate-bounce" />
             <span>
               {tearProgress === 0
-                ? 'Attrapez l’encoche brillante à gauche et glissez jusqu’à droite pour déchirer le sachet !'
-                : tearProgress < 88
-                ? `Continuez de glisser jusqu’au bout pour ouvrir ! (${tearProgress}%)`
+                ? 'Glissez votre doigt ou la souris de gauche à droite sur le booster pour le déchirer !'
+                : tearProgress < 82
+                ? `Continuez de glisser vers la droite ! (${tearProgress}%)`
                 : '✨ Explosion du booster !'}
             </span>
           </div>
@@ -473,7 +499,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             {/* Rising Card Stack Inside the Pack (visible as top tears and during burst!) */}
             <div
               style={{
-                opacity: phase === 'bursting' ? 1 : Math.max(0, (tearProgress - 20) / 80),
+                opacity: phase === 'bursting' ? 1 : Math.max(0, (tearProgress - 15) / 85),
                 transform:
                   phase === 'bursting'
                     ? 'translateY(-35px) scale(0.95)'
@@ -490,17 +516,22 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             {/* THE FOIL BOOSTER PACK */}
             <div
               ref={packRef}
-              onPointerDown={handleSeamPointerDown}
+              onPointerDown={handlePackPointerDown}
               onPointerMove={handlePackPointerMove}
-              onPointerUp={handleReleaseTearEarly}
-              onPointerLeave={handlePackPointerLeave}
+              onPointerUp={handlePackPointerUpOrCancel}
+              onPointerCancel={handlePackPointerUpOrCancel}
+              onPointerLeave={() => {
+                if (!isDraggingTearRef.current) {
+                  setPackTilt({ rx: 0, ry: 0, glareX: 50, glareY: 50 });
+                }
+              }}
               style={{
                 transform: `rotateX(${packTilt.rx}deg) rotateY(${packTilt.ry}deg) translate(${shakeOffset.x}px, ${shakeOffset.y}px) scale(${tensionScale})`,
                 transition: isDraggingTear
                   ? 'none'
                   : 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1)',
               }}
-              className="relative z-20 w-[300px] sm:w-[330px] h-[465px] sm:h-[505px] select-none touch-none"
+              className="relative z-20 w-[300px] sm:w-[330px] h-[465px] sm:h-[505px] select-none touch-none cursor-grab active:cursor-grabbing"
             >
               {/* ================= VOLUMETRIC GOD RAYS SHOOTING OUT OF THE TORN SEAM ================= */}
               {tearProgress > 4 && (
@@ -537,12 +568,10 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   }}
                   className="absolute top-0 inset-x-0 h-[82px] z-40 rounded-t-2xl overflow-hidden shadow-[0_18px_30px_rgba(0,0,0,0.65)] pointer-events-none"
                 >
-                  {/* Crimped Silver Foil Ridges */}
                   <div className="w-full h-5 bg-[repeating-linear-gradient(90deg,#e2e8f0_0px,#e2e8f0_3px,#64748b_3px,#64748b_6px)] border-b border-white/50" />
                   <div
                     className={`w-full h-full bg-gradient-to-r ${selectedSeries.gradient} relative flex items-center justify-center`}
                   >
-                    {/* Shiny Metallic Silver Foil Backside Reflection */}
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-200/60 via-white/25 to-transparent" />
                     <span className="relative z-10 text-[10px] font-black tracking-[0.22em] uppercase text-white drop-shadow">
                       {selectedSeries.badgeText}
@@ -572,10 +601,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
               )}
 
               {/* ================= MOLTEN ENERGY SEAM & TACTILE TEAR HANDLE ================= */}
-              <div
-                onPointerDown={handleSeamPointerDown}
-                className="absolute top-[60px] -inset-x-4 h-12 z-50 flex items-center cursor-grab active:cursor-grabbing"
-              >
+              <div className="absolute top-[60px] -inset-x-4 h-12 z-50 flex items-center pointer-events-none">
                 <div className="w-full h-full flex items-center relative px-4">
                   {/* Uncut perforated foil notch line */}
                   <div className="w-full border-b-2 border-dashed border-amber-200/80 shadow-[0_0_12px_rgba(251,191,36,0.6)]" />
@@ -594,14 +620,14 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   {phase === 'ready' && (
                     <div
                       style={{
-                        left: `calc(${Math.min(95, Math.max(5, tearProgress))}% )`,
+                        left: `calc(${Math.min(95, Math.max(8, tearProgress))}% )`,
                         boxShadow: `0 0 25px ${seamGlowHex}, 0 0 45px rgba(251,191,36,0.95)`,
                       }}
                       className={`absolute -translate-x-1/2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-300 via-yellow-400 to-orange-400 text-slate-950 font-display font-black text-[11px] flex items-center gap-1 border-2 border-white transition-transform ${
                         isDraggingTear ? 'scale-125' : 'scale-100 animate-pulse'
                       }`}
                     >
-                      <span>{tearProgress === 0 ? 'TIRER ➔' : `${tearProgress}%`}</span>
+                      <span>{tearProgress === 0 ? 'GLISSER ➔' : `${tearProgress}%`}</span>
                     </div>
                   )}
                 </div>
@@ -617,7 +643,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   opacity: phase === 'bursting' ? 0 : 1,
                   transition: 'all 650ms cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
-                className={`absolute top-[80px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_28px_65px_rgba(0,0,0,0.85)] flex flex-col items-center justify-between p-5`}
+                className={`absolute top-[80px] bottom-0 inset-x-0 rounded-b-2xl overflow-hidden bg-gradient-to-br ${selectedSeries.gradient} border-x-2 border-b-2 border-white/30 shadow-[0_28px_65px_rgba(0,0,0,0.85)] flex flex-col items-center justify-between p-5 pointer-events-none`}
               >
                 {/* Foil Metallic Specular Reflection */}
                 <div
@@ -627,11 +653,10 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                   className="absolute inset-0 booster-metallic-sheen pointer-events-none z-20 opacity-65"
                 />
 
-                {/* Decorative background pattern */}
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#ffffff_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
 
                 {/* Top Series Emblem */}
-                <div className="relative z-10 text-center mt-1 pointer-events-none">
+                <div className="relative z-10 text-center mt-1">
                   <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest mb-1">
                     <Sparkles className="w-3 h-3" /> milTCG
                   </div>
@@ -644,7 +669,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 </div>
 
                 {/* Central Hero Medallion */}
-                <div className="relative z-10 my-auto pointer-events-none">
+                <div className="relative z-10 my-auto">
                   <div className="w-40 h-40 sm:w-44 sm:h-44 rounded-full p-1.5 bg-gradient-to-tr from-amber-300 via-white to-pink-400 shadow-[0_0_35px_rgba(251,191,36,0.5)]">
                     <div className="w-full h-full rounded-full overflow-hidden bg-slate-900 relative border-2 border-slate-950 flex items-center justify-center">
                       {coverPhotoUrl ? (
@@ -671,11 +696,11 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 </div>
 
                 {/* Bottom Foil Crimp */}
-                <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20 pointer-events-none">
+                <div className="relative z-10 w-full flex items-center justify-between text-[10px] font-bold text-white/80 pt-2 border-t border-white/20">
                   <span>ÉDITION FAMILLE</span>
                   <span>1 HOLO+ GARANTIE</span>
                 </div>
-                <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85 pointer-events-none" />
+                <div className="absolute bottom-0 inset-x-0 h-3.5 bg-[repeating-linear-gradient(90deg,#cbd5e1_0px,#cbd5e1_3px,#64748b_3px,#64748b_6px)] opacity-85" />
               </div>
 
               {/* Dynamic Flying Foil Sparks Overlay */}
@@ -777,9 +802,11 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
 
             {/* Current Active Top Card (Swipeable & 3D Flippable!) */}
             <div
+              key={`stack-card-${currentCardIndex}`}
               onPointerDown={handleCardStackPointerDown}
               onPointerMove={handleCardStackPointerMove}
-              onPointerUp={handleCardStackPointerUp}
+              onPointerUp={handleCardStackPointerUpOrCancel}
+              onPointerCancel={handleCardStackPointerUpOrCancel}
               style={{
                 transform: isAnimatingOut
                   ? `translate(${exitDirection.x}px, ${exitDirection.y}px) rotate(${
@@ -791,9 +818,9 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 opacity: isAnimatingOut ? 0 : 1,
                 transition: isSwipingCard
                   ? 'none'
-                  : 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 250ms ease',
+                  : 'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 230ms ease',
               }}
-              className="relative z-20 touch-none cursor-grab active:cursor-grabbing"
+              className="relative z-20 touch-none cursor-grab active:cursor-grabbing select-none"
             >
               {/* Mystery Hit Floating Prompt when card is face-down */}
               {isCurrentCardFaceDown && (
@@ -814,7 +841,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
             </div>
           </div>
 
-          {/* Rarity Badge & Gesture Instruction (NO auto-advance buttons!) */}
+          {/* Rarity Badge & Gesture Instruction */}
           <div className="mt-4 flex flex-col items-center gap-2.5">
             {!isCurrentCardFaceDown && (
               <div className="flex items-center gap-2">
@@ -840,8 +867,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 {isCurrentCardFaceDown
                   ? 'Touchez la carte dorée pour la retourner en 3D !'
                   : currentCardIndex + 1 < pulledCards.length
-                  ? 'Glissez la carte sur le côté (gauche ou droite) pour découvrir la suivante !'
-                  : 'Glissez cette dernière carte pour voir le résumé de votre booster !'}
+                  ? 'Glissez la carte sur le côté (ou touchez-la) pour découvrir la suivante !'
+                  : 'Glissez ou touchez cette dernière carte pour voir le résumé du tirage !'}
               </span>
             </div>
           </div>

@@ -107,7 +107,9 @@ export const HoloCard: React.FC<HoloCardProps> = ({
       >
         {/* ================= CARD FRONT ================= */}
         <div
-          className={`w-full h-full rounded-[18px] ${outerBorderClasses} backface-hidden relative overflow-hidden flex flex-col justify-between`}
+          className={`w-full h-full rounded-[18px] ${outerBorderClasses} backface-hidden relative overflow-hidden flex flex-col justify-between transition-opacity duration-200 ${
+            flipped ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
         >
           {/* Inner Card Canvas */}
           <div
@@ -344,7 +346,9 @@ export const HoloCard: React.FC<HoloCardProps> = ({
         {/* ================= CARD BACK (When Flipped) ================= */}
         <div
           style={{ transform: 'rotateY(180deg)' }}
-          className="w-full h-full rounded-[18px] p-[8px] bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 backface-hidden absolute inset-0 shadow-2xl"
+          className={`w-full h-full rounded-[18px] p-[8px] bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 backface-hidden absolute inset-0 shadow-2xl transition-opacity duration-200 ${
+            flipped ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
         >
           <div className="w-full h-full rounded-[12px] bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 relative overflow-hidden flex flex-col items-center justify-center border border-amber-400/40">
             <div className="absolute inset-0 opacity-25 bg-[radial-gradient(#fbbf24_1.5px,transparent_1.5px)] [background-size:18px_18px]" />
