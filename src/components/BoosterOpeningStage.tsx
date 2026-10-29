@@ -13,6 +13,7 @@ import {
   Hand,
   Download,
   Loader2,
+  Smartphone,
 } from 'lucide-react';
 
 interface BoosterOpeningStageProps {
@@ -25,6 +26,7 @@ interface BoosterOpeningStageProps {
   onInspectCard: (card: TCGCard) => void;
   onOpenPhotoManager: () => void;
   onTriggerImportPack: () => void;
+  onOpenInstallModal?: () => void;
 }
 
 type StagePhase = 'ready' | 'bursting' | 'stack' | 'summary';
@@ -49,6 +51,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   onInspectCard,
   onOpenPhotoManager,
   onTriggerImportPack,
+  onOpenInstallModal,
 }) => {
   const [selectedSeries, setSelectedSeries] = useState<BoosterSeries>(BOOSTER_SERIES[0]);
   const [phase, setPhase] = useState<StagePhase>('ready');
@@ -106,9 +109,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
     };
   }, [phase, allCards.length]);
 
-  // Only show an already-pulled custom photo on the pack cover so unpulled photos remain a 100% surprise!
-  const coverPhotoUrl =
-    allCards.find((c) => c.isCustomPhoto && (collection[c.id]?.count || 0) > 0)?.imageUrl || '';
+  // Show the Studio Ghibli portrait of Émile on the booster pack cover medallion!
+  const coverPhotoUrl = './emile-hero.png';
 
   // Pre-roll the pack when entering 'ready' so the internal seam glow matches the best card inside!
   const pendingPackRef = useRef<{ cards: TCGCard[]; isGodPack: boolean } | null>(null);
@@ -481,6 +483,16 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                 <span>Google Photos</span>
               </button>
             </div>
+
+            {onOpenInstallModal && (
+              <button
+                onClick={onOpenInstallModal}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/40 text-amber-200 font-display font-bold text-xs transition flex items-center justify-center gap-2"
+              >
+                <Smartphone className="w-4 h-4 text-amber-400" />
+                <span>📲 Comment installer en Mode Application sur le téléphone ?</span>
+              </button>
+            )}
           </div>
         </div>
       )}

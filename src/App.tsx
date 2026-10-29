@@ -12,16 +12,17 @@ import { BoosterOpeningStage } from './components/BoosterOpeningStage';
 import { BinderView } from './components/BinderView';
 import { CardInspectModal } from './components/CardInspectModal';
 import { PhotoManagerModal } from './components/PhotoManagerModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import {
   Sparkles,
   BookOpen,
   Images,
   Volume2,
   VolumeX,
-  Crown,
   PackageOpen,
   Download,
   Loader2,
+  Smartphone,
 } from 'lucide-react';
 
 const STORAGE_SETTINGS_KEY = 'sonny_tcg_settings_v1';
@@ -80,6 +81,26 @@ export const App: React.FC = () => {
   // Modals
   const [inspectedCard, setInspectedCard] = useState<TCGCard | null>(null);
   const [isPhotoManagerOpen, setIsPhotoManagerOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+
+  // Capture PWA beforeinstallprompt event if supported
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleTriggerNativeInstall = async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    setDeferredInstallPrompt(null);
+    setIsInstallModalOpen(false);
+  };
 
   // Load stored custom cards on mount
   useEffect(() => {
@@ -287,13 +308,13 @@ export const App: React.FC = () => {
             </button>
           </nav>
 
-          {/* Right Actions: Direct Pack Import + Google Photos Picker + Sound Toggle */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right Actions: Direct Pack Import + Google Photos Picker + Install App Mode + Sound Toggle */}
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <button
               onClick={() => directPackInputRef.current?.click()}
               disabled={isImportingPack}
               title="Importer un Pack (.json)"
-              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-[11px] sm:text-xs font-extrabold text-pink-200 transition flex items-center gap-1 shadow-sm disabled:opacity-50"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-pink-500/20 hover:bg-pink-500/35 border border-pink-400/50 text-[11px] sm:text-xs font-extrabold text-pink-200 transition flex items-center gap-1 shadow-sm disabled:opacity-50"
             >
               {isImportingPack ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-pink-300" />
@@ -314,6 +335,15 @@ export const App: React.FC = () => {
               <span className="px-1.5 py-0.2 rounded-full bg-indigo-950/80 text-amber-300 text-[10px] font-extrabold border border-indigo-400/30">
                 {customCards.length}
               </span>
+            </button>
+
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              title="Installer en mode Application sur le téléphone"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/30 border border-amber-400/50 text-[11px] sm:text-xs font-extrabold text-amber-200 transition flex items-center gap-1 shadow-sm"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden lg:inline">Mode App</span>
             </button>
 
             <button
@@ -358,6 +388,7 @@ export const App: React.FC = () => {
             onInspectCard={(card) => setInspectedCard(card)}
             onOpenPhotoManager={() => setIsPhotoManagerOpen(true)}
             onTriggerImportPack={() => directPackInputRef.current?.click()}
+            onOpenInstallModal={() => setIsInstallModalOpen(true)}
           />
         ) : (
           <BinderView
@@ -402,6 +433,14 @@ export const App: React.FC = () => {
           onAddCustomCards={handleAddCustomCards}
           onClearCustomCards={handleClearCustomCards}
           onClose={() => setIsPhotoManagerOpen(false)}
+        />
+      )}
+
+      {isInstallModalOpen && (
+        <InstallAppModal
+          onClose={() => setIsInstallModalOpen(false)}
+          deferredPrompt={deferredInstallPrompt}
+          onTriggerNativeInstall={handleTriggerNativeInstall}
         />
       )}
     </div>
