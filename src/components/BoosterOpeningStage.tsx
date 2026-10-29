@@ -370,15 +370,15 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       {/* ==================== EMPTY STATE: DIRECT PACK IMPORT OR GOOGLE PHOTOS ==================== */}
       {allCards.length === 0 && (
         <div className="w-full max-w-xl my-8 rounded-3xl bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-slate-900/95 border border-white/15 p-7 sm:p-10 text-center shadow-2xl flex flex-col items-center gap-5">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-500 p-0.5 shadow-[0_0_35px_rgba(251,191,36,0.45)]">
-            <div className="w-full h-full rounded-[22px] bg-slate-950 flex items-center justify-center">
-              <Crown className="w-10 h-10 text-amber-400 animate-pulse" />
-            </div>
-          </div>
+          <img
+            src="./icon-512.png"
+            alt="milTCG"
+            className="w-28 h-28 rounded-3xl shadow-[0_0_40px_rgba(251,191,36,0.5)] object-cover"
+          />
 
           <div className="space-y-2">
             <h2 className="font-display font-black text-2xl sm:text-3xl text-white">
-              Prêt à ouvrir vos Boosters ?
+              Bienvenue sur mil<span className="text-amber-400">TCG</span>
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
               Importez un fichier de Pack (`.json`) directement ou tirez vos photos au hasard depuis
@@ -632,8 +632,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
 
                 {/* Top Series Emblem */}
                 <div className="relative z-10 text-center mt-1 pointer-events-none">
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest uppercase mb-1">
-                    <Sparkles className="w-3 h-3" /> {childName} TCG
+                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md border border-white/25 text-[10px] font-extrabold text-amber-300 tracking-widest mb-1">
+                    <Sparkles className="w-3 h-3" /> milTCG
                   </div>
                   <h2 className="font-display font-black text-2xl sm:text-3xl text-white tracking-tight uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.6)] leading-none">
                     {selectedSeries.name}

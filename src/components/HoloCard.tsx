@@ -346,11 +346,11 @@ export const HoloCard: React.FC<HoloCardProps> = ({
               <Crown className="w-14 h-14 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.8)]" />
               <Sparkles className="w-6 h-6 text-pink-300 absolute -top-1 -right-1 animate-pulse" />
             </div>
-            <p className="mt-4 font-display font-black tracking-[0.2em] text-xs uppercase text-amber-200/90">
-              POCKET FAMILY
+            <p className="mt-4 font-display font-black tracking-[0.15em] text-sm text-white">
+              mil<span className="text-amber-400">TCG</span>
             </p>
             <p className="text-[10px] text-indigo-300/70 font-semibold tracking-widest mt-0.5">
-              TRADING CARD GAME
+              COLLECTOR EDITION
             </p>
           </div>
         </div>

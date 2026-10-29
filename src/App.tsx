@@ -223,15 +223,15 @@ export const App: React.FC = () => {
             onClick={() => setActiveTab('booster')}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-500 p-0.5 shadow-[0_0_20px_rgba(251,191,36,0.4)] group-hover:scale-105 transition">
-              <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center">
-                <Crown className="w-5 h-5 text-amber-400" />
-              </div>
-            </div>
+            <img
+              src="./icon-192.png"
+              alt="milTCG"
+              className="w-11 h-11 rounded-2xl shadow-[0_0_20px_rgba(251,191,36,0.45)] group-hover:scale-105 transition object-cover"
+            />
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="font-display font-black text-base sm:text-lg tracking-tight text-white">
-                  {settings.childName} <span className="text-amber-400">Pocket TCG</span>
+                <h1 className="font-display font-black text-lg sm:text-xl tracking-tight text-white">
+                  mil<span className="text-amber-400">TCG</span>
                 </h1>
               </div>
               <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
@@ -356,8 +356,7 @@ export const App: React.FC = () => {
         <p className="flex items-center justify-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-amber-400/70" />
           <span>
-            {settings.childName} Pocket TCG — Toutes vos photos restent stockées 100% en local dans
-            votre navigateur (IndexedDB).
+            milTCG — Toutes vos cartes restent stockées 100% en local dans votre navigateur.
           </span>
         </p>
       </footer>
