@@ -32,11 +32,16 @@ const STORAGE_COLLECTION_KEY = 'sonny_tcg_collection_v1';
 const DEFAULT_CLIENT_ID =
   '817822977351-5m288vfdn4arbv5o35rd8skt2le8ektu.apps.googleusercontent.com';
 
+const MAX_PACKS_PER_HOUR = 5;
+const PACK_RESET_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
 const DEFAULT_SETTINGS: AppSettings = {
   childName: 'Émile',
   soundEnabled: true,
   googleClientId: DEFAULT_CLIENT_ID,
   totalPacksOpened: 0,
+  packsRemaining: MAX_PACKS_PER_HOUR,
+  packResetAt: 0,
 };
 
 export const App: React.FC = () => {
@@ -48,17 +53,45 @@ export const App: React.FC = () => {
       const raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
       if (!raw) return DEFAULT_SETTINGS;
       const parsed = JSON.parse(raw);
+      const now = Date.now();
+      const resetAt = typeof parsed.packResetAt === 'number' ? parsed.packResetAt : 0;
+      const isExpired = resetAt > 0 && now >= resetAt;
+      const remaining = isExpired
+        ? MAX_PACKS_PER_HOUR
+        : typeof parsed.packsRemaining === 'number'
+        ? parsed.packsRemaining
+        : MAX_PACKS_PER_HOUR;
+
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
         childName:
           !parsed.childName || parsed.childName === 'Mon Fils' ? 'Émile' : parsed.childName,
         googleClientId: parsed.googleClientId || DEFAULT_CLIENT_ID,
+        packsRemaining: remaining,
+        packResetAt: isExpired ? 0 : resetAt,
       };
     } catch {
       return DEFAULT_SETTINGS;
     }
   });
+
+  // Hourly 5-pack auto-reset timer check
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSettings((prev) => {
+        if (prev.packResetAt && prev.packResetAt > 0 && Date.now() >= prev.packResetAt) {
+          return {
+            ...prev,
+            packsRemaining: MAX_PACKS_PER_HOUR,
+            packResetAt: 0,
+          };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Collection map (cardId -> count)
   const [collection, setCollection] = useState<CollectionMap>(() => {
@@ -160,10 +193,25 @@ export const App: React.FC = () => {
       }
       return next;
     });
-    setSettings((prev) => ({
-      ...prev,
-      totalPacksOpened: prev.totalPacksOpened + 1,
-    }));
+    setSettings((prev) => {
+      const now = Date.now();
+      const wasExpired = prev.packResetAt && prev.packResetAt > 0 && now >= prev.packResetAt;
+      const currentRemaining = wasExpired
+        ? MAX_PACKS_PER_HOUR
+        : prev.packsRemaining ?? MAX_PACKS_PER_HOUR;
+      const nextRemaining = Math.max(0, currentRemaining - 1);
+      const nextResetAt =
+        !prev.packResetAt || prev.packResetAt <= now
+          ? now + PACK_RESET_INTERVAL_MS
+          : prev.packResetAt;
+
+      return {
+        ...prev,
+        totalPacksOpened: prev.totalPacksOpened + 1,
+        packsRemaining: nextRemaining,
+        packResetAt: nextRemaining === MAX_PACKS_PER_HOUR ? 0 : nextResetAt,
+      };
+    });
   };
 
   const handleAddCustomCards = async (newCards: TCGCard[]) => {
@@ -440,6 +488,8 @@ export const App: React.FC = () => {
             allCards={allCards}
             collection={collection}
             childName={settings.childName}
+            packsRemaining={settings.packsRemaining ?? MAX_PACKS_PER_HOUR}
+            packResetAt={settings.packResetAt ?? 0}
             isImportingPack={isImportingPack}
             importStatusText={importStatusText}
             onPackOpened={handlePackOpened}
@@ -447,6 +497,7 @@ export const App: React.FC = () => {
             onOpenPhotoManager={() => setIsPhotoManagerOpen(true)}
             onTriggerImportPack={() => directPackInputRef.current?.click()}
             onOpenInstallModal={() => setIsInstallModalOpen(true)}
+            onSwitchToBinder={() => setActiveTab('binder')}
           />
         ) : (
           <BinderView

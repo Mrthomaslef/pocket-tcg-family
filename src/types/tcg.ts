@@ -57,4 +57,6 @@ export interface AppSettings {
   googleClientId: string;
   lastGoogleSync?: string;
   totalPacksOpened: number;
+  packsRemaining?: number;
+  packResetAt?: number;
 }

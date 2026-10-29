@@ -14,12 +14,16 @@ import {
   Download,
   Loader2,
   Smartphone,
+  Clock,
+  BookOpen,
 } from 'lucide-react';
 
 interface BoosterOpeningStageProps {
   allCards: TCGCard[];
   collection: CollectionMap;
   childName: string;
+  packsRemaining: number;
+  packResetAt: number;
   isImportingPack?: boolean;
   importStatusText?: string | null;
   onPackOpened: (pulled: PulledCardResult[]) => void;
@@ -27,6 +31,7 @@ interface BoosterOpeningStageProps {
   onOpenPhotoManager: () => void;
   onTriggerImportPack: () => void;
   onOpenInstallModal?: () => void;
+  onSwitchToBinder?: () => void;
 }
 
 type StagePhase = 'ready' | 'bursting' | 'stack' | 'summary';
@@ -45,6 +50,8 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   allCards,
   collection,
   childName,
+  packsRemaining,
+  packResetAt,
   isImportingPack = false,
   importStatusText = null,
   onPackOpened,
@@ -52,11 +59,30 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
   onOpenPhotoManager,
   onTriggerImportPack,
   onOpenInstallModal,
+  onSwitchToBinder,
 }) => {
   const [selectedSeries, setSelectedSeries] = useState<BoosterSeries>(BOOSTER_SERIES[0]);
   const [phase, setPhase] = useState<StagePhase>('ready');
   const phaseRef = useRef<StagePhase>('ready');
   phaseRef.current = phase;
+
+  // Live countdown ticker for hourly 5-pack recharge
+  const [nowMs, setNowMs] = useState<number>(Date.now());
+  useEffect(() => {
+    if (!packResetAt || packResetAt <= 0) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [packResetAt]);
+
+  const formatCountdown = (targetMs: number): string => {
+    const diffSec = Math.max(0, Math.ceil((targetMs - nowMs) / 1000));
+    const mins = Math.floor(diffSec / 60);
+    const secs = diffSec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const countdownLabel = packResetAt > nowMs ? formatCountdown(packResetAt) : '00:00';
+  const isOutOfPacks = packsRemaining <= 0;
 
   // Interactive foil tear state (0 to 100) + synchronous refs so fast swipes never lag or get stuck
   const [tearProgress, setTearProgress] = useState<number>(0);
@@ -160,7 +186,7 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
 
   // Start tearing the booster pack on pointer down
   const handlePackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (phaseRef.current !== 'ready' || !packRef.current) return;
+    if (phaseRef.current !== 'ready' || !packRef.current || isOutOfPacks) return;
     try {
       packRef.current.setPointerCapture(e.pointerId);
     } catch {}
@@ -494,29 +520,56 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
       {/* ==================== PHASE 1 & 2: TACTILE BOOSTER TEARING (100% 1-screen locked) ==================== */}
       {allCards.length > 0 && (phase === 'ready' || phase === 'bursting') && (
         <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-between overflow-hidden">
-          {/* Top Bar: 3 Themed Booster Edition Selector Pills */}
-          <div className="shrink-0 grid grid-cols-3 sm:flex items-center justify-center gap-1.5 sm:gap-2 w-full max-w-xl pt-0.5">
-            {BOOSTER_SERIES.map((series) => {
-              const active = series.id === selectedSeries.id;
-              return (
-                <button
-                  key={series.id}
-                  onClick={() => {
-                    setSelectedSeries(series);
-                    tearProgressRef.current = 0;
-                    setTearProgress(0);
-                  }}
-                  className={`px-2 sm:px-3.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 border text-center leading-tight ${
-                    active
-                      ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_16px_rgba(251,191,36,0.25)]'
-                      : 'bg-slate-900/70 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
-                  }`}
-                >
-                  <span className="shrink-0">{series.iconEmoji}</span>
-                  <span className="truncate">{series.name}</span>
-                </button>
-              );
-            })}
+          {/* Top Bar: 3 Themed Booster Edition Selector Pills + Hourly 5-Pack Energy Bar */}
+          <div className="shrink-0 flex flex-col items-center gap-1.5 w-full max-w-xl pt-0.5">
+            <div className="grid grid-cols-3 sm:flex items-center justify-center gap-1.5 sm:gap-2 w-full">
+              {BOOSTER_SERIES.map((series) => {
+                const active = series.id === selectedSeries.id;
+                return (
+                  <button
+                    key={series.id}
+                    onClick={() => {
+                      setSelectedSeries(series);
+                      tearProgressRef.current = 0;
+                      setTearProgress(0);
+                    }}
+                    className={`px-2 sm:px-3.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 border text-center leading-tight ${
+                      active
+                        ? 'bg-white/15 border-amber-400 text-white shadow-[0_0_16px_rgba(251,191,36,0.25)]'
+                        : 'bg-slate-900/70 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
+                    }`}
+                  >
+                    <span className="shrink-0">{series.iconEmoji}</span>
+                    <span className="truncate">{series.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Hourly 5-Pack Stamina Gauge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-white/15 text-[11px] font-bold">
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      i < packsRemaining
+                        ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.9)]'
+                        : 'bg-slate-700'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className={isOutOfPacks ? 'text-rose-300 font-extrabold' : 'text-amber-300 font-extrabold'}>
+                {packsRemaining}/5 Boosters
+              </span>
+              {packsRemaining < 5 && packResetAt > nowMs && (
+                <span className="text-slate-300 flex items-center gap-1 pl-1 border-l border-white/15">
+                  <Clock className="w-3 h-3 text-sky-400" />
+                  <span>Reset : {countdownLabel}</span>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Center Auto-Scaled 3D Booster Stage */}
@@ -771,20 +824,66 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
                     />
                   );
                 })}
+
+                {/* Locked Cooldown Overlay when 0/5 packs remaining */}
+                {isOutOfPacks && phase === 'ready' && (
+                  <div className="absolute inset-0 z-50 rounded-2xl bg-slate-950/88 backdrop-blur-md border-2 border-amber-400/50 p-5 flex flex-col items-center justify-center text-center gap-3 shadow-2xl">
+                    <div className="w-14 h-14 rounded-2xl bg-amber-400/20 border border-amber-400/50 flex items-center justify-center text-amber-300">
+                      <Clock className="w-8 h-8 animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-rose-300 text-[10px] font-extrabold uppercase tracking-wider">
+                        0 / 5 Boosters Disponibles
+                      </span>
+                      <h3 className="font-display font-black text-xl text-white mt-1.5">
+                        Recharge en cours...
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-1">
+                        Vos <strong>5 nouveaux boosters</strong> seront prêts dans :
+                      </p>
+                      <div className="mt-2 font-display font-black text-3xl text-amber-400 tracking-wider">
+                        {countdownLabel}
+                      </div>
+                    </div>
+                    {onSwitchToBinder && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSwitchToBinder();
+                        }}
+                        className="mt-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-display font-black text-xs flex items-center gap-1.5 shadow-lg"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        <span>Explorer mon Classeur</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Bottom Interactive Gesture Prompt */}
           <div className="shrink-0 pb-1 flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-200 text-[11px] sm:text-xs font-bold shadow-[0_0_20px_rgba(251,191,36,0.15)]">
-            <Hand className="w-3.5 h-3.5 text-amber-400 animate-bounce shrink-0" />
-            <span className="truncate">
-              {tearProgress === 0
-                ? 'Glissez de gauche à droite sur le booster pour le déchirer !'
-                : tearProgress < 82
-                ? `Continuez de glisser vers la droite ! (${tearProgress}%)`
-                : '✨ Explosion du booster !'}
-            </span>
+            {isOutOfPacks ? (
+              <>
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">
+                  Prochains 5 boosters disponibles dans {countdownLabel}
+                </span>
+              </>
+            ) : (
+              <>
+                <Hand className="w-3.5 h-3.5 text-amber-400 animate-bounce shrink-0" />
+                <span className="truncate">
+                  {tearProgress === 0
+                    ? 'Glissez de gauche à droite sur le booster pour le déchirer !'
+                    : tearProgress < 82
+                    ? `Continuez de glisser vers la droite ! (${tearProgress}%)`
+                    : '✨ Explosion du booster !'}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1006,14 +1105,24 @@ export const BoosterOpeningStage: React.FC<BoosterOpeningStageProps> = ({
           </div>
 
           {/* Bottom Action Button */}
-          <div className="shrink-0 pb-1 flex items-center justify-center">
-            <button
-              onClick={resetForNextBooster}
-              className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-xs sm:text-sm shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Choisir un Nouveau Booster !
-            </button>
+          <div className="shrink-0 pb-1 flex items-center justify-center gap-2">
+            {isOutOfPacks ? (
+              <button
+                onClick={onSwitchToBinder || resetForNextBooster}
+                className="px-5 py-2.5 rounded-2xl bg-slate-800 border border-amber-400/50 text-amber-300 font-display font-black text-xs sm:text-sm shadow-lg flex items-center gap-2"
+              >
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>0/5 Boosters (Reset dans {countdownLabel}) • Voir le Classeur</span>
+              </button>
+            ) : (
+              <button
+                onClick={resetForNextBooster}
+                className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-slate-950 font-display font-black text-xs sm:text-sm shadow-[0_0_25px_rgba(251,191,36,0.45)] hover:brightness-110 active:scale-95 transition flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Choisir un Nouveau Booster ({packsRemaining}/5 restants)</span>
+              </button>
+            )}
           </div>
         </div>
       )}
